@@ -118,6 +118,14 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Verified by: Type checks and tests requiring severity on every finding.
 - Edge cases: UI labels may include friendly copy, but underlying severity values must remain stable.
 
+### Findings Reliability Is Disclosed
+
+- Rule: The Findings tab must display a visible note that findings are a work in progress and may not be reliable because they have not been verified manually yet.
+- Why: Validation rules and recommendations are still being refined, so users must not mistake findings for fully verified audit results.
+- Enforced in: Findings tab UI copy and package tests.
+- Verified by: E2E package tests checking the note text and manual UI review.
+- Edge cases: The note can be removed only after the validation catalog and findings behavior have been manually verified against representative real-world pages.
+
 ### Sidebar Permissions Are Explicit
 
 - Rule: The extension must request only the side panel permissions required for automatic active-page analysis: `sidePanel`, `scripting`, `tabs`, and `<all_urls>` host access.
