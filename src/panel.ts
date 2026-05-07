@@ -338,20 +338,80 @@ function nodeDetails(node: SchemaNode): HTMLElement {
   details.open = true;
 
   const summary = document.createElement("summary");
-  summary.textContent = `${node.types.join(", ") || "Untyped entity"} (${node.format})`;
+  const title = document.createElement("span");
+  title.textContent = `${node.types.join(", ") || "Untyped entity"} (${node.format})`;
 
-  const id = document.createElement("p");
-  id.className = "meta";
-  id.textContent = `Node: ${node.nodeId ?? node.id} / Source: ${node.sourceId}`;
-
-  const links = document.createElement("p");
-  links.className = "meta";
-  links.textContent = node.links.length > 0 ? `Links: ${node.links.map((link) => `${link.property} -> ${link.target}`).join(", ")}` : "Links: none";
+  const actions = document.createElement("span");
+  actions.className = "node-actions";
+  actions.append(
+    copyChip("ID", "Node", node.nodeId ?? node.id),
+    copyChip("SRC", "Source", node.sourceId),
+  );
+  if (node.links.length > 0) {
+    actions.append(copyChip("LNK", "Links", node.links.map((link) => `${link.property} -> ${link.target}`).join("\n")));
+  }
+  summary.replaceChildren(title, actions);
 
   const properties = propertyTable(node.properties);
 
-  details.replaceChildren(summary, id, links, properties);
+  details.replaceChildren(summary, properties);
   return details;
+}
+
+function copyChip(label: string, name: string, value: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  const popover = document.createElement("div");
+
+  popover.className = "copy-popover";
+  popover.popover = "manual";
+  const content = document.createElement("span");
+  content.className = "copy-popover-value";
+  content.textContent = value;
+  const hint = document.createElement("span");
+  hint.className = "copy-popover-hint";
+  hint.textContent = "Click to copy";
+  popover.replaceChildren(content, hint);
+  document.body.append(popover);
+
+  button.className = "copy-chip";
+  button.type = "button";
+  button.textContent = label;
+  button.setAttribute("aria-label", `Copy ${name.toLowerCase()}`);
+  button.addEventListener("mouseenter", () => showCopyPopover(button, popover, name));
+  button.addEventListener("mouseleave", () => hideCopyPopover(popover));
+  button.addEventListener("focus", () => showCopyPopover(button, popover, name));
+  button.addEventListener("blur", () => hideCopyPopover(popover));
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void copyToClipboard(value, name);
+  });
+  return button;
+}
+
+function showCopyPopover(anchor: HTMLElement, popover: HTMLElement, name: string): void {
+  const rect = anchor.getBoundingClientRect();
+  popover.dataset["label"] = name;
+  popover.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
+  popover.style.top = `${rect.bottom + 6}px`;
+  if (!popover.matches(":popover-open")) {
+    popover.showPopover();
+  }
+}
+
+function hideCopyPopover(popover: HTMLElement): void {
+  if (popover.matches(":popover-open")) {
+    popover.hidePopover();
+  }
+}
+
+async function copyToClipboard(value: string, name: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(value);
+    setStatus(`Copied ${name.toLowerCase()} to clipboard.`);
+  } catch {
+    setStatus(`Could not copy ${name.toLowerCase()} to clipboard.`, true);
+  }
 }
 
 function propertyTable(properties: Record<string, unknown>): HTMLElement {
