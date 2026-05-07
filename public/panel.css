@@ -428,6 +428,33 @@ summary {
   margin-left: 8px;
 }
 
+.child-tree {
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0 7px;
+  padding-left: 12px;
+}
+
+.child-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.child-group h3 {
+  color: var(--blue);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+.child-group .node {
+  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+  padding: 10px;
+}
+
 .copy-chip {
   background: var(--blue-soft);
   border: 1px solid color-mix(in srgb, var(--blue) 35%, transparent);

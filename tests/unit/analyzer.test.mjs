@@ -112,3 +112,37 @@ test("present fields with unexpected value shapes produce warnings", () => {
   assert.equal(result.findings.some((finding) => finding.title === "Unexpected image value shape"), true);
   assert.equal(result.findings.some((finding) => finding.title === "Unexpected offers.price value shape"), true);
 });
+
+test("nested JSON-LD list items are linked from their parent entity", () => {
+  const result = analyzeExtractedData({
+    url: "https://example.com/breadcrumb",
+    title: "Breadcrumb",
+    analyzedAt: "2026-05-07T00:00:00.000Z",
+    sources: [
+      {
+        id: "json-ld-1",
+        format: "json-ld",
+        label: "JSON-LD script 1",
+        raw: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "@id": "https://example.com/#breadcrumb",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Homepage", item: "https://example.com/" },
+            { "@type": "ListItem", position: 2, name: "Product", item: "https://example.com/product" },
+            { "@type": "ListItem", position: 3, name: "Features", item: "https://example.com/product/features" },
+            { "@type": "ListItem", position: 4, name: "Duplicate detection", item: "https://example.com/product/features/duplicate-detection" },
+          ],
+        }),
+      },
+    ],
+    nodes: [],
+  });
+
+  const breadcrumb = result.nodes.find((node) => node.types.includes("BreadcrumbList"));
+  const listItems = result.nodes.filter((node) => node.types.includes("ListItem"));
+
+  assert.equal(listItems.length, 4);
+  assert.equal(breadcrumb?.links.filter((link) => link.property === "itemListElement").length, 4);
+  assert.equal(breadcrumb?.links.every((link) => result.nodes.some((node) => node.id === link.target)), true);
+});

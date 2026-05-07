@@ -294,8 +294,13 @@ function renderTree(): void {
     view.replaceChildren(emptyState("No entities detected", "Structured data entities will appear here after analysis."));
     return;
   }
-  const nodes = filterNodes(result.nodes);
-  view.replaceChildren(...nodes.map((node) => nodeDetails(node)));
+  const nodes = result.nodes.filter((node) => matchesFormat(node.format));
+  const roots = treeRoots(nodes).filter((node) => treeMatchesQuery(node, nodes, new Set()));
+  if (roots.length === 0) {
+    view.replaceChildren(emptyState("No matching entities", "Adjust filters to show matching structured data entities."));
+    return;
+  }
+  view.replaceChildren(...roots.map((node) => nodeDetails(node, nodes, new Set())));
 }
 
 function renderSources(): void {
@@ -332,7 +337,7 @@ function findingCard(finding: Finding, result: AnalysisResult): HTMLElement {
   return article;
 }
 
-function nodeDetails(node: SchemaNode): HTMLElement {
+function nodeDetails(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<string>): HTMLElement {
   const details = document.createElement("details");
   details.className = "node";
   details.open = true;
@@ -353,9 +358,78 @@ function nodeDetails(node: SchemaNode): HTMLElement {
   summary.replaceChildren(title, actions);
 
   const properties = propertyTable(node.properties);
+  const children = childGroups(node, allNodes, ancestors);
+  const childTree = children.length > 0 ? childTreeElement(children, allNodes, new Set([...ancestors, node.id])) : undefined;
 
-  details.replaceChildren(summary, properties);
+  details.replaceChildren(summary, properties, ...(childTree !== undefined ? [childTree] : []));
   return details;
+}
+
+interface ChildGroup {
+  property: string;
+  nodes: SchemaNode[];
+}
+
+function treeRoots(nodes: SchemaNode[]): SchemaNode[] {
+  const childIds = new Set<string>();
+  for (const node of nodes) {
+    for (const link of node.links) {
+      const child = findLinkedNode(link.target, nodes);
+      if (child !== undefined) {
+        childIds.add(child.id);
+      }
+    }
+  }
+  return nodes.filter((node) => !childIds.has(node.id));
+}
+
+function childGroups(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<string>): ChildGroup[] {
+  const groups = new Map<string, SchemaNode[]>();
+  for (const link of node.links) {
+    const child = findLinkedNode(link.target, allNodes);
+    if (child === undefined || ancestors.has(child.id) || child.id === node.id || !treeMatchesQuery(child, allNodes, new Set(ancestors))) {
+      continue;
+    }
+    const group = groups.get(link.property) ?? [];
+    if (!group.some((entry) => entry.id === child.id)) {
+      group.push(child);
+    }
+    groups.set(link.property, group);
+  }
+  return Array.from(groups, ([property, groupNodes]) => ({ property, nodes: groupNodes }));
+}
+
+function childTreeElement(groups: ChildGroup[], allNodes: SchemaNode[], ancestors: Set<string>): HTMLElement {
+  const container = document.createElement("section");
+  container.className = "child-tree";
+  for (const group of groups) {
+    const groupElement = document.createElement("section");
+    groupElement.className = "child-group";
+    const label = document.createElement("h3");
+    label.textContent = group.property;
+    groupElement.replaceChildren(label, ...group.nodes.map((child) => nodeDetails(child, allNodes, ancestors)));
+    container.append(groupElement);
+  }
+  return container;
+}
+
+function findLinkedNode(target: string, nodes: SchemaNode[]): SchemaNode | undefined {
+  return nodes.find((node) => node.id === target || node.nodeId === target);
+}
+
+function treeMatchesQuery(node: SchemaNode, allNodes: SchemaNode[], seen: Set<string>): boolean {
+  if (seen.has(node.id)) {
+    return false;
+  }
+  if (matchesQuery(nodeSearchText(node))) {
+    return true;
+  }
+  const nextSeen = new Set(seen);
+  nextSeen.add(node.id);
+  return node.links.some((link) => {
+    const child = findLinkedNode(link.target, allNodes);
+    return child !== undefined && treeMatchesQuery(child, allNodes, nextSeen);
+  });
 }
 
 function copyChip(label: string, name: string, value: string): HTMLButtonElement {
