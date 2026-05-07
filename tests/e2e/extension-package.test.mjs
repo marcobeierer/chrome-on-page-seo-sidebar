@@ -28,6 +28,7 @@ test("side panel shell exposes required first-release views", async () => {
   assert.match(panelHtml, /id="shortcut-settings"/);
   assert.match(panelHtml, /id="page-data"/);
   assert.match(panelHtml, /id="findings-view"/);
+  assert.match(panelHtml, /may not be reliable/);
   assert.match(panelHtml, /id="tree-view"/);
   assert.match(panelHtml, /id="source-view"/);
   assert.match(panelHtml, /id="search"/);

@@ -356,6 +356,15 @@ select {
   min-width: 0;
 }
 
+.findings-note {
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  border-radius: 12px;
+  color: var(--text);
+  margin: 0;
+  padding: 9px 10px;
+}
+
 .tabs {
   display: flex;
   gap: 6px;
