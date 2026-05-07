@@ -11,13 +11,14 @@ The workspace currently contains no implementation code. The product will start 
 ## Goals
 
 - Provide a Chrome side panel for on-page SEO structured data analysis.
+- Extract core on-page SEO metadata: title, meta description, canonical, and hreflang.
 - Extract JSON-LD, Microdata, and RDFa from the current rendered DOM with equal parser depth.
 - Validate detected structured data against bundled Google rich result rules covering all current Google rich result documentation.
 - Show findings grouped as errors, warnings, and info.
 - Provide a summary dashboard, schema tree explorer, pretty raw JSON/source view, findings list, and search/filter.
-- Support public websites, authenticated staging pages, SPAs through manual refresh, and localhost.
+- Support public websites, authenticated staging pages, SPAs through automatic URL-change analysis plus manual refresh, and localhost.
 - Keep analysis session-only and local-only.
-- Prepare the first release for Chrome Web Store approval with minimal permissions.
+- Prepare the first release for Chrome Web Store approval with explicit side panel permissions.
 
 ## Non-Goals
 
@@ -27,7 +28,7 @@ The workspace currently contains no implementation code. The product will start 
 - Browser support beyond Chrome.
 - Automatic live re-scanning after DOM changes.
 - Original HTML comparison in the first milestone.
-- Page overlays, toolbar popup UX, or a Chrome side panel UX.
+- Page overlays, toolbar popup UX, or a DevTools panel UX.
 
 ## Scope
 

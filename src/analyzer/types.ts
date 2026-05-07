@@ -31,8 +31,29 @@ export interface ExtractedPageData {
   url: string;
   title: string;
   analyzedAt: string;
+  page: PageSeoData;
   sources: SourceBlock[];
   nodes: SchemaNode[];
+}
+
+export interface PageSeoData {
+  title: PageSeoField;
+  metaDescription?: PageSeoField;
+  canonical?: PageSeoLink;
+  hreflang: HreflangLink[];
+}
+
+export interface PageSeoField {
+  value: string;
+  selector?: string;
+}
+
+export interface PageSeoLink extends PageSeoField {
+  href: string;
+}
+
+export interface HreflangLink extends PageSeoLink {
+  hreflang: string;
 }
 
 export interface AnalysisResult extends ExtractedPageData {

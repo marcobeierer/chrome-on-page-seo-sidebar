@@ -6,6 +6,7 @@ Chrome side panel extension for local on-page SEO structured data QA.
 
 - Manifest V3 side panel opened from the toolbar.
 - Automatic current-DOM analysis from the active tab, with manual refresh available.
+- Page title, meta description, canonical, and hreflang extraction.
 - JSON-LD extraction with malformed JSON-LD parser findings.
 - Microdata and RDFa extraction from rendered DOM markup.
 - Normalized schema tree with graph links where identifiers are available.

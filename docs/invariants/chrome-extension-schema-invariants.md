@@ -38,6 +38,14 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Verified by: Fixture and manual SPA checks where schema is injected after load and appears after manual refresh.
 - Edge cases: Original HTML comparison is deferred; missing original HTML must not block analysis.
 
+### Page Metadata Is First-Class On-Page Data
+
+- Rule: Each page analysis must extract and display the active tab's document title, meta description, canonical link, and hreflang alternate links when present.
+- Why: On-page SEO QA needs core HTML metadata alongside structured data to understand the page's search-facing signals.
+- Enforced in: Active-tab extraction, `ExtractedPageData.page`, and the side panel page data section.
+- Verified by: Package/UI checks for the page data section and manual QA against pages with and without each metadata field.
+- Edge cases: Missing metadata should display as `Not found`; multiple hreflang links should all be shown; canonical and hreflang URLs should use the browser-resolved `href` when available.
+
 ### Analysis Runs On Open And Navigation
 
 - Rule: Schema analysis must run automatically when the side panel opens, when the active tab changes, when Chrome reports active-tab navigation, when the active tab URL changes in SPA-style navigation, and when the user triggers manual refresh.

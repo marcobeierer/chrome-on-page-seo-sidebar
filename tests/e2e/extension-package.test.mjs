@@ -25,6 +25,7 @@ test("built extension package contains manifest, panel, bundles, and icons", asy
 test("side panel shell exposes required first-release views", async () => {
   const panelHtml = await readFile(join(dist, "panel.html"), "utf8");
   assert.match(panelHtml, /id="refresh"/);
+  assert.match(panelHtml, /id="page-data"/);
   assert.match(panelHtml, /id="findings-view"/);
   assert.match(panelHtml, /id="tree-view"/);
   assert.match(panelHtml, /id="source-view"/);

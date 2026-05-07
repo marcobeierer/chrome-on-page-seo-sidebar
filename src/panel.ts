@@ -1,5 +1,5 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
-import type { AnalysisResult, ExtractedPageData, Finding, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
+import type { AnalysisResult, ExtractedPageData, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
 import { inspectedPageAnalysis } from "./inspectedPage";
 
 let currentResult: AnalysisResult | null = null;
@@ -153,10 +153,88 @@ function isRestrictedUrl(url: string | undefined): boolean {
 }
 
 function render(): void {
+  renderPageData();
   renderSummary();
   if (activeView === "findings") renderFindings();
   if (activeView === "tree") renderTree();
   if (activeView === "source") renderSources();
+}
+
+function renderPageData(): void {
+  const view = requireElement<HTMLElement>("page-data");
+  const page = currentResult?.page;
+  if (page === undefined) {
+    view.replaceChildren(emptyState("Page data", "Title, meta description, canonical, and hreflang data will appear after analysis."));
+    return;
+  }
+
+  const details = document.createElement("details");
+  details.className = "page-data-details";
+  details.open = true;
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Page data";
+
+  const table = document.createElement("table");
+  table.className = "metadata-table";
+  const tbody = document.createElement("tbody");
+  tbody.append(
+    metadataRow("Title", page.title.value),
+    metadataRow("Meta description", page.metaDescription?.value ?? "Not found", page.metaDescription === undefined),
+    metadataRow("Canonical", page.canonical?.href ?? "Not found", page.canonical === undefined),
+    hreflangRow(page),
+  );
+  table.append(tbody);
+
+  details.replaceChildren(summary, table);
+  view.replaceChildren(details);
+}
+
+function metadataRow(label: string, value: string, missing = false): HTMLTableRowElement {
+  const row = document.createElement("tr");
+  const heading = document.createElement("th");
+  heading.scope = "row";
+  heading.textContent = label;
+  const cell = document.createElement("td");
+  const content = document.createElement("span");
+  content.className = missing ? "missing-value" : "metadata-value";
+  content.textContent = value;
+  cell.append(content);
+  row.replaceChildren(heading, cell);
+  return row;
+}
+
+function hreflangRow(page: PageSeoData): HTMLTableRowElement {
+  const row = document.createElement("tr");
+  const heading = document.createElement("th");
+  heading.scope = "row";
+  heading.textContent = "Hreflang";
+  const cell = document.createElement("td");
+  if (page.hreflang.length === 0) {
+    const missing = document.createElement("span");
+    missing.className = "missing-value";
+    missing.textContent = "Not found";
+    cell.append(missing);
+  } else {
+    cell.append(hreflangList(page.hreflang));
+  }
+  row.replaceChildren(heading, cell);
+  return row;
+}
+
+function hreflangList(links: HreflangLink[]): HTMLElement {
+  const list = document.createElement("ul");
+  list.className = "hreflang-list";
+  for (const link of links) {
+    const item = document.createElement("li");
+    const lang = document.createElement("strong");
+    lang.textContent = link.hreflang;
+    const href = document.createElement("span");
+    href.textContent = link.href;
+    item.replaceChildren(lang, href);
+    list.append(item);
+  }
+  return list;
 }
 
 function renderSummary(): void {

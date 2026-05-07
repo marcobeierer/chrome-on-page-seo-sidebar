@@ -1,4 +1,4 @@
-import type { ExtractedPageData, SchemaLink, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
+import type { ExtractedPageData, HreflangLink, PageSeoData, PageSeoField, PageSeoLink, SchemaLink, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
 
 export function inspectedPageAnalysis(): ExtractedPageData {
   const sources: SourceBlock[] = [];
@@ -14,9 +14,63 @@ export function inspectedPageAnalysis(): ExtractedPageData {
     url: window.location.href,
     title: document.title,
     analyzedAt: new Date().toISOString(),
+    page: extractPageSeoData(),
     sources,
     nodes,
   };
+
+  function extractPageSeoData(): PageSeoData {
+    const titleElement = document.querySelector("title");
+    const metaDescription = firstMetaByName("description");
+    const canonical = firstLinkByRel("canonical");
+    const hreflangLinks = linksByRel("alternate")
+      .map((link): HreflangLink | undefined => {
+        const hreflang = link.getAttribute("hreflang")?.trim();
+        const href = link.href || link.getAttribute("href")?.trim() || "";
+        if (hreflang === undefined || hreflang === "" || href === "") {
+          return undefined;
+        }
+        return {
+          hreflang,
+          href,
+          value: href,
+          selector: selectorFor(link),
+        };
+      })
+      .filter((link): link is HreflangLink => link !== undefined);
+
+    return {
+      title: {
+        value: (titleElement?.textContent ?? document.title).trim(),
+        ...(titleElement !== null ? { selector: selectorFor(titleElement) } : {}),
+      },
+      ...(metaDescription !== undefined ? { metaDescription } : {}),
+      ...(canonical !== undefined ? { canonical } : {}),
+      hreflang: hreflangLinks,
+    };
+  }
+
+  function firstMetaByName(name: string): PageSeoField | undefined {
+    const meta = Array.from(document.querySelectorAll<HTMLMetaElement>("meta[name]")).find((entry) => entry.getAttribute("name")?.toLowerCase() === name);
+    const value = meta?.getAttribute("content")?.trim();
+    if (meta === undefined || value === undefined || value === "") {
+      return undefined;
+    }
+    return { value, selector: selectorFor(meta) };
+  }
+
+  function firstLinkByRel(rel: string): PageSeoLink | undefined {
+    const link = linksByRel(rel)[0];
+    const href = link?.href || link?.getAttribute("href")?.trim() || "";
+    if (link === undefined || href === "") {
+      return undefined;
+    }
+    return { href, value: href, selector: selectorFor(link) };
+  }
+
+  function linksByRel(rel: string): HTMLLinkElement[] {
+    return Array.from(document.querySelectorAll<HTMLLinkElement>("link[rel]")).filter((link) => readTokens(link.getAttribute("rel")?.toLowerCase() ?? "").includes(rel));
+  }
 
   function extractJsonLd(targetSources: SourceBlock[]): void {
     const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"], script[type="application/json+ld"]'));
