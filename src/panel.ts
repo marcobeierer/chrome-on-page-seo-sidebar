@@ -5,6 +5,7 @@ import { inspectedPageAnalysis } from "./inspectedPage";
 let currentResult: AnalysisResult | null = null;
 let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
+let pageDataOpen = true;
 let lastObservedUrl: string | null = null;
 let lastActiveTabId: number | null = null;
 let pendingRefresh: number | undefined;
@@ -170,7 +171,10 @@ function renderPageData(): void {
 
   const details = document.createElement("details");
   details.className = "page-data-details";
-  details.open = true;
+  details.open = pageDataOpen;
+  details.addEventListener("toggle", () => {
+    pageDataOpen = details.open;
+  });
 
   const summary = document.createElement("summary");
   summary.textContent = "Page data";
@@ -563,31 +567,91 @@ function sourceDetails(source: SourceBlock): HTMLElement {
   details.open = source.format === "json-ld";
 
   const summary = document.createElement("summary");
-  summary.textContent = `${source.label} (${source.format})`;
+  const title = document.createElement("span");
+  title.textContent = `${source.label} (${source.format})`;
 
-  const selector = document.createElement("p");
-  selector.className = "meta";
-  selector.textContent = source.selector !== undefined ? `Source: ${source.selector}` : "Source location unavailable";
+  const actions = document.createElement("span");
+  actions.className = "node-actions";
+  if (source.selector !== undefined) {
+    actions.append(copyChip("LOC", "Location", source.selector));
+  }
+  actions.append(copyIconButton("Source", sourceDisplayText(source)));
+  summary.replaceChildren(title, actions);
 
   const code = sourceCodeBlock(source);
 
-  details.replaceChildren(summary, selector, code);
+  details.replaceChildren(summary, code);
   return details;
 }
 
-function jsonCodeBlock(value: unknown): HTMLElement {
-  return codeBlock(JSON.stringify(value, null, 2), "json", true);
+function copyIconButton(name: string, value: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  const popover = document.createElement("div");
+  const content = document.createElement("span");
+  const hint = document.createElement("span");
+
+  popover.className = "copy-popover";
+  popover.popover = "manual";
+  content.className = "copy-popover-value";
+  content.textContent = `Copy full ${name.toLowerCase()}`;
+  hint.className = "copy-popover-hint";
+  hint.textContent = "Click to copy";
+  popover.replaceChildren(content, hint);
+  document.body.append(popover);
+
+  button.className = "copy-chip copy-icon-chip";
+  button.type = "button";
+  button.setAttribute("aria-label", `Copy ${name.toLowerCase()}`);
+  button.append(copyIconSvg());
+  button.addEventListener("mouseenter", () => showCopyPopover(button, popover, name));
+  button.addEventListener("mouseleave", () => hideCopyPopover(popover));
+  button.addEventListener("focus", () => showCopyPopover(button, popover, name));
+  button.addEventListener("blur", () => hideCopyPopover(popover));
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void copyToClipboard(value, name);
+  });
+  return button;
+}
+
+function copyIconSvg(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  const back = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  back.setAttribute("x", "5");
+  back.setAttribute("y", "3");
+  back.setAttribute("width", "8");
+  back.setAttribute("height", "9");
+  back.setAttribute("rx", "1.5");
+  const front = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  front.setAttribute("x", "3");
+  front.setAttribute("y", "5");
+  front.setAttribute("width", "8");
+  front.setAttribute("height", "9");
+  front.setAttribute("rx", "1.5");
+  svg.append(back, front);
+  return svg;
 }
 
 function sourceCodeBlock(source: SourceBlock): HTMLElement {
+  const displayText = sourceDisplayText(source);
+  if (source.format === "json-ld" && displayText !== source.raw) {
+    return codeBlock(displayText, "json", true);
+  }
+  return codeBlock(displayText, "raw", false);
+}
+
+function sourceDisplayText(source: SourceBlock): string {
   if (source.format === "json-ld") {
     try {
-      return jsonCodeBlock(JSON.parse(source.raw));
+      return JSON.stringify(JSON.parse(source.raw), null, 2);
     } catch {
-      return codeBlock(source.raw, "raw", false);
+      return source.raw;
     }
   }
-  return codeBlock(source.raw, "raw", false);
+  return source.raw;
 }
 
 function codeBlock(content: string, language: "json" | "raw", highlightJson: boolean): HTMLElement {

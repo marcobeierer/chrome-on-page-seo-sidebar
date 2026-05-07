@@ -46,6 +46,14 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Verified by: Package/UI checks for the page data section and manual QA against pages with and without each metadata field.
 - Edge cases: Missing metadata should display as `Not found`; multiple hreflang links should all be shown; canonical and hreflang URLs should use the browser-resolved `href` when available.
 
+### Page Metadata Collapse State Is Stable
+
+- Rule: The page data block must be collapsible and preserve its open/collapsed state across side panel view switches and ordinary rerenders.
+- Why: Users collapse page metadata to focus on schema data; changing tabs must not unexpectedly reopen it.
+- Enforced in: Side panel UI state and page data rendering.
+- Verified by: Manual QA switching between Tree, Source, and Findings after collapsing Page data.
+- Edge cases: A full side panel reload may reset the default state; that is acceptable because state is session-only.
+
 ### Analysis Runs On Open And Navigation
 
 - Rule: Schema analysis must run automatically when the side panel opens, when the active tab changes, when Chrome reports active-tab navigation, when the active tab URL changes in SPA-style navigation, and when the user triggers manual refresh.

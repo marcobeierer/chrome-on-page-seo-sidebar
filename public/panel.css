@@ -413,7 +413,8 @@ summary {
   font-weight: 800;
 }
 
-.node summary {
+.node summary,
+.source summary {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -471,6 +472,19 @@ summary {
 .copy-chip:focus-visible {
   border-color: var(--blue);
   outline: none;
+}
+
+.copy-icon-chip {
+  padding: 3px 5px;
+}
+
+.copy-icon-chip svg {
+  display: block;
+  fill: none;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  width: 14px;
 }
 
 .copy-popover {
