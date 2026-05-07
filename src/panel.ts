@@ -11,6 +11,7 @@ let lastActiveTabId: number | null = null;
 let pendingRefresh: number | undefined;
 
 const refreshButton = requireElement<HTMLButtonElement>("refresh");
+const shortcutSettingsButton = requireElement<HTMLButtonElement>("shortcut-settings");
 const statusElement = requireElement<HTMLElement>("status");
 const searchInput = requireElement<HTMLInputElement>("search");
 const severitySelect = requireElement<HTMLSelectElement>("severity");
@@ -19,19 +20,29 @@ const formatSelect = requireElement<HTMLSelectElement>("format");
 refreshButton.addEventListener("click", () => {
   scheduleAnalysis("Manual refresh requested.", 0);
 });
+shortcutSettingsButton.addEventListener("click", () => {
+  void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+});
+attachPopoverTooltip(shortcutSettingsButton, "Shortcut", "Configure activation shortcut");
 searchInput.addEventListener("input", render);
 severitySelect.addEventListener("change", render);
 formatSelect.addEventListener("change", render);
 
 for (const tab of Array.from(document.querySelectorAll<HTMLButtonElement>(".tab"))) {
   tab.addEventListener("click", () => {
-    activeView = tab.dataset["view"] as typeof activeView;
-    for (const entry of Array.from(document.querySelectorAll(".tab, .view"))) {
-      entry.classList.remove("active");
+    activateView(tab.dataset["view"] as typeof activeView);
+  });
+}
+
+for (const card of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-summary-target]"))) {
+  card.addEventListener("click", () => {
+    const target = card.dataset["summaryTarget"] as typeof activeView;
+    const severity = card.dataset["summarySeverity"];
+    if (severity !== undefined) {
+      severitySelect.value = severity;
     }
-    tab.classList.add("active");
-    requireElement<HTMLElement>(`${activeView}-view`).classList.add("active");
-    render();
+    activateView(target);
+    scrollTabsIntoView();
   });
 }
 
@@ -159,6 +170,20 @@ function render(): void {
   if (activeView === "findings") renderFindings();
   if (activeView === "tree") renderTree();
   if (activeView === "source") renderSources();
+}
+
+function activateView(view: typeof activeView): void {
+  activeView = view;
+  for (const entry of Array.from(document.querySelectorAll(".tab, .view"))) {
+    entry.classList.remove("active");
+  }
+  document.querySelector<HTMLButtonElement>(`.tab[data-view="${view}"]`)?.classList.add("active");
+  requireElement<HTMLElement>(`${view}-view`).classList.add("active");
+  render();
+}
+
+function scrollTabsIntoView(): void {
+  document.querySelector<HTMLElement>(".tabs")?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
 function renderPageData(): void {
@@ -613,6 +638,23 @@ function copyIconButton(name: string, value: string): HTMLButtonElement {
     void copyToClipboard(value, name);
   });
   return button;
+}
+
+function attachPopoverTooltip(anchor: HTMLElement, label: string, value: string): void {
+  const popover = document.createElement("div");
+  const content = document.createElement("span");
+
+  popover.className = "copy-popover";
+  popover.popover = "manual";
+  content.className = "copy-popover-value";
+  content.textContent = value;
+  popover.replaceChildren(content);
+  document.body.append(popover);
+
+  anchor.addEventListener("mouseenter", () => showCopyPopover(anchor, popover, label));
+  anchor.addEventListener("mouseleave", () => hideCopyPopover(popover));
+  anchor.addEventListener("focus", () => showCopyPopover(anchor, popover, label));
+  anchor.addEventListener("blur", () => hideCopyPopover(popover));
 }
 
 function copyIconSvg(): SVGSVGElement {

@@ -91,6 +91,43 @@ select {
   padding: 9px 14px;
 }
 
+.toolbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  width: 34px;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  border-color: var(--blue);
+  color: var(--blue);
+  outline: none;
+}
+
+.icon-button svg {
+  fill: none;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  width: 18px;
+}
+
 #refresh:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -220,9 +257,18 @@ select {
 }
 
 .summary-card {
+  color: var(--text);
+  cursor: pointer;
   display: grid;
   gap: 2px;
   padding: 7px 8px;
+  text-align: left;
+}
+
+.summary-card:hover,
+.summary-card:focus-visible {
+  border-color: var(--blue);
+  outline: none;
 }
 
 .summary-card span {

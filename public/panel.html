@@ -13,7 +13,15 @@
           <p class="eyebrow">On-Page SEO Sidebar</p>
           <h1>Structured data QA</h1>
         </div>
-        <button id="refresh" type="button">Refresh analysis</button>
+        <div class="toolbar-actions">
+          <button id="refresh" type="button">Refresh analysis</button>
+          <button id="shortcut-settings" class="icon-button" type="button" aria-label="Configure activation shortcut">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="2.5" y="5" width="15" height="10" rx="2"></rect>
+              <path d="M5.5 8h.01M8.5 8h.01M11.5 8h.01M14.5 8h.01M5.5 11.5h9"></path>
+            </svg>
+          </button>
+        </div>
       </header>
 
       <section id="status" class="status" role="status">Open the side panel on a page to analyze the current DOM.</section>
@@ -21,11 +29,11 @@
       <section id="page-data" class="page-data" aria-label="Page SEO data"></section>
 
       <section class="summary-grid" aria-label="Summary">
-        <article class="summary-card"><span id="count-sources">0</span><small>Sources</small></article>
-        <article class="summary-card"><span id="count-nodes">0</span><small>Entities</small></article>
-        <article class="summary-card error"><span id="count-errors">0</span><small>Errors</small></article>
-        <article class="summary-card warning"><span id="count-warnings">0</span><small>Warnings</small></article>
-        <article class="summary-card info"><span id="count-info">0</span><small>Info</small></article>
+        <button class="summary-card" data-summary-target="tree" type="button"><span id="count-nodes">0</span><small>Entities</small></button>
+        <button class="summary-card" data-summary-target="source" type="button"><span id="count-sources">0</span><small>Sources</small></button>
+        <button class="summary-card error" data-summary-target="findings" data-summary-severity="error" type="button"><span id="count-errors">0</span><small>Errors</small></button>
+        <button class="summary-card warning" data-summary-target="findings" data-summary-severity="warning" type="button"><span id="count-warnings">0</span><small>Warnings</small></button>
+        <button class="summary-card info" data-summary-target="findings" data-summary-severity="info" type="button"><span id="count-info">0</span><small>Info</small></button>
       </section>
 
       <section class="filters" aria-label="Filters">

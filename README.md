@@ -36,6 +36,8 @@ npm run build
 
 Load `dist/` as an unpacked extension in Chrome, then click the extension toolbar button to open the `On-Page SEO Sidebar` side panel.
 
+Use Chrome's extension activation shortcut settings at `chrome://extensions/shortcuts` if you want to open it from the keyboard.
+
 ## Notes
 
 - Results are session-only.

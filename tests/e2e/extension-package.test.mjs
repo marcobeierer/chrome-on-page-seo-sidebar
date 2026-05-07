@@ -25,6 +25,7 @@ test("built extension package contains manifest, panel, bundles, and icons", asy
 test("side panel shell exposes required first-release views", async () => {
   const panelHtml = await readFile(join(dist, "panel.html"), "utf8");
   assert.match(panelHtml, /id="refresh"/);
+  assert.match(panelHtml, /id="shortcut-settings"/);
   assert.match(panelHtml, /id="page-data"/);
   assert.match(panelHtml, /id="findings-view"/);
   assert.match(panelHtml, /id="tree-view"/);
@@ -42,6 +43,7 @@ test("built extension keeps local-only analysis assumptions", async () => {
   assert.deepEqual(manifest.permissions, ["sidePanel", "scripting", "tabs"]);
   assert.deepEqual(manifest.host_permissions, ["<all_urls>"]);
   assert.match(backgroundJs, /openPanelOnActionClick/);
+  assert.equal(manifest.commands, undefined);
   assert.doesNotMatch(panelJs, /\bfetch\s*\(/);
   assert.doesNotMatch(panelJs, /XMLHttpRequest/);
 });
