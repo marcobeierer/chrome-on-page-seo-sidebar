@@ -1,0 +1,19 @@
+{
+  "name": "on-page-seo-sidebar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome DevTools extension for local on-page SEO structured data analysis.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/**/*.test.mjs",
+    "test:e2e": "npm run build && node --test tests/e2e/**/*.test.mjs",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>On-Page SEO Sidebar</title>
+    <link rel="stylesheet" href="panel.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="toolbar">
+        <div>
+          <p class="eyebrow">On-Page SEO Sidebar</p>
+          <h1>Structured data QA</h1>
+        </div>
+        <button id="refresh" type="button">Refresh analysis</button>
+      </header>
+
+      <section id="status" class="status" role="status">Open a page and refresh to analyze the current DOM.</section>
+
+      <section class="summary-grid" aria-label="Summary">
+        <article class="summary-card"><span id="count-sources">0</span><small>Sources</small></article>
+        <article class="summary-card"><span id="count-nodes">0</span><small>Entities</small></article>
+        <article class="summary-card error"><span id="count-errors">0</span><small>Errors</small></article>
+        <article class="summary-card warning"><span id="count-warnings">0</span><small>Warnings</small></article>
+        <article class="summary-card info"><span id="count-info">0</span><small>Info</small></article>
+      </section>
+
+      <section class="filters" aria-label="Filters">
+        <label>
+          Search
+          <input id="search" type="search" placeholder="Type, property, message, source...">
+        </label>
+        <label>
+          Format
+          <select id="format">
+            <option value="all">All</option>
+            <option value="json-ld">JSON-LD</option>
+            <option value="microdata">Microdata</option>
+            <option value="rdfa">RDFa</option>
+          </select>
+        </label>
+      </section>
+
+      <nav class="tabs" aria-label="Views">
+        <button class="tab active" data-view="tree" type="button">Tree</button>
+        <button class="tab" data-view="source" type="button">Source</button>
+        <button class="tab" data-view="findings" type="button">Findings <span id="findings-badge" class="tab-badge" hidden></span></button>
+      </nav>
+
+      <section id="tree-view" class="view active" aria-label="Schema tree"></section>
+      <section id="source-view" class="view" aria-label="Raw source"></section>
+      <section id="findings-view" class="view" aria-label="Findings">
+        <div class="view-toolbar">
+          <label>
+            Severity
+            <select id="severity">
+              <option value="all">All</option>
+              <option value="error">Errors</option>
+              <option value="warning">Warnings</option>
+              <option value="info">Info</option>
+            </select>
+          </label>
+        </div>
+        <div id="findings-list" class="view-list"></div>
+      </section>
+    </main>
+    <script src="panel.js"></script>
+  </body>
+</html>

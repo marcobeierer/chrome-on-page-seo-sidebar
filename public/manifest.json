@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "On-Page SEO Sidebar",
+  "version": "0.1.0",
+  "description": "Inspect and validate on-page structured data locally from Chrome DevTools.",
+  "devtools_page": "devtools.html",
+  "icons": {
+    "16": "icon16.svg",
+    "48": "icon48.svg",
+    "128": "icon128.svg"
+  }
+}
