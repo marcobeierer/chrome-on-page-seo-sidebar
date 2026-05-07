@@ -6,6 +6,7 @@ let currentResult: AnalysisResult | null = null;
 let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
 let lastObservedUrl: string | null = null;
+let lastActiveTabId: number | null = null;
 let pendingRefresh: number | undefined;
 
 const refreshButton = requireElement<HTMLButtonElement>("refresh");
@@ -33,9 +34,24 @@ for (const tab of Array.from(document.querySelectorAll<HTMLButtonElement>(".tab"
   });
 }
 
-chrome.devtools.network.onNavigated.addListener((url) => {
-  lastObservedUrl = url;
-  scheduleAnalysis("Page navigation detected. Reanalyzing current DOM...", 500);
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  lastActiveTabId = activeInfo.tabId;
+  lastObservedUrl = null;
+  scheduleAnalysis("Active tab changed. Analyzing current page...", 250);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (tabId !== lastActiveTabId) {
+    return;
+  }
+  if (changeInfo.url !== undefined) {
+    lastObservedUrl = changeInfo.url;
+    scheduleAnalysis("Page navigation detected. Reanalyzing current DOM...", 500);
+    return;
+  }
+  if (changeInfo.status === "complete") {
+    scheduleAnalysis("Page loaded. Reanalyzing current DOM...", 250);
+  }
 });
 
 window.setInterval(() => {
@@ -56,7 +72,7 @@ async function refreshAnalysis(): Promise<void> {
   setStatus("Analyzing current DOM...");
 
   try {
-    const extracted = await evaluateInspectedPage();
+    const extracted = await evaluateActiveTabPage();
     currentResult = analyzeExtractedData(extracted);
     lastObservedUrl = currentResult.url;
     setStatus(`Analyzed ${currentResult.title || currentResult.url} at ${formatTime(currentResult.analyzedAt)}.`);
@@ -87,7 +103,7 @@ async function refreshIfUrlChanged(): Promise<void> {
     return;
   }
   try {
-    const url = await evaluateInspectedExpression<string>("window.location.href");
+    const url = await evaluateActiveTabFunction(() => window.location.href);
     if (lastObservedUrl !== null && url !== lastObservedUrl) {
       lastObservedUrl = url;
       scheduleAnalysis("URL change detected. Reanalyzing current DOM...", 300);
@@ -95,25 +111,45 @@ async function refreshIfUrlChanged(): Promise<void> {
     }
     lastObservedUrl = url;
   } catch {
-    // The inspected page may be between navigations. The next poll or navigation event will retry.
+    // The active tab may be between navigations. The next poll or navigation event will retry.
   }
 }
 
-function evaluateInspectedPage(): Promise<ExtractedPageData> {
-  const expression = `(${inspectedPageAnalysis.toString()})()`;
-  return evaluateInspectedExpression<ExtractedPageData>(expression);
+function evaluateActiveTabPage(): Promise<ExtractedPageData> {
+  return evaluateActiveTabFunction(inspectedPageAnalysis);
 }
 
-function evaluateInspectedExpression<T>(expression: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    chrome.devtools.inspectedWindow.eval(expression, { useContentScriptContext: false }, (result, exceptionInfo) => {
-      if (exceptionInfo !== undefined && exceptionInfo.isException) {
-        reject(new Error(exceptionInfo.value ?? exceptionInfo.description ?? "Unable to inspect the current page."));
-        return;
-      }
-      resolve(result as T);
-    });
+async function evaluateActiveTabFunction<T>(func: () => T): Promise<T> {
+  const tab = await getActiveTab();
+  if (tab.id === undefined) {
+    throw new Error("No active tab is available for analysis.");
+  }
+  if (isRestrictedUrl(tab.url)) {
+    throw new Error("Chrome does not allow extensions to analyze this page. Open a normal website, staging page, or localhost URL.");
+  }
+
+  lastActiveTabId = tab.id;
+  const [result] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func,
   });
+
+  if (result === undefined) {
+    throw new Error("The page did not return analysis data.");
+  }
+  return result.result as T;
+}
+
+async function getActiveTab(): Promise<chrome.tabs.Tab> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab === undefined) {
+    throw new Error("No active tab found. Select a page and reopen the sidebar.");
+  }
+  return tab;
+}
+
+function isRestrictedUrl(url: string | undefined): boolean {
+  return url !== undefined && /^(chrome|chrome-extension|edge|about):/i.test(url);
 }
 
 function render(): void {

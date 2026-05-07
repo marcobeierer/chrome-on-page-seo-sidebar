@@ -2,9 +2,17 @@
 
 ## Scope
 
-These invariants apply to the Chrome DevTools extension for local on-page SEO structured-data extraction, normalization, validation, and display.
+These invariants apply to the Chrome side panel extension for local on-page SEO structured-data extraction, normalization, validation, and display.
 
 ## Invariants
+
+### Product And Panel Naming
+
+- Rule: The extension, store listing, package-facing documentation, side panel UI, and icon accessibility labels must use `On-Page SEO Sidebar`.
+- Why: The product is a browser side panel, so the visible release surfaces should use the full descriptive name consistently.
+- Enforced in: `public/manifest.json`, `package.json`, README, store-prep docs, panel HTML, icon accessibility labels, and Chrome Web Store materials.
+- Verified by: Build/package checks, manual Chrome extension load, and text search before release.
+- Edge cases: Historical planning docs may mention earlier working names, but user-facing release surfaces should not.
 
 ### Local-Only Analysis
 
@@ -16,7 +24,7 @@ These invariants apply to the Chrome DevTools extension for local on-page SEO st
 
 ### Session-Only Results
 
-- Rule: Analysis results must remain in memory for the current DevTools/page session only.
+- Rule: Analysis results must remain in memory for the current side panel/page session only.
 - Why: Users chose no history, bookmarks, exports, or persisted page audits for the first release.
 - Enforced in: UI state management and storage API usage.
 - Verified by: Tests or manual QA confirming results disappear after panel/page session closure and no page analysis is written to extension storage.
@@ -24,7 +32,7 @@ These invariants apply to the Chrome DevTools extension for local on-page SEO st
 
 ### Current DOM Is Primary
 
-- Rule: The primary analyzed source is the currently rendered DOM of the inspected page.
+- Rule: The primary analyzed source is the currently rendered DOM of the active browser tab.
 - Why: The first milestone must support public pages, staging pages, SPAs, and localhost while avoiding original-response capture complexity.
 - Enforced in: Analysis bridge and extraction pipeline.
 - Verified by: Fixture and manual SPA checks where schema is injected after load and appears after manual refresh.
@@ -32,19 +40,19 @@ These invariants apply to the Chrome DevTools extension for local on-page SEO st
 
 ### Analysis Runs On Open And Navigation
 
-- Rule: Schema analysis must run automatically when the DevTools panel opens, when Chrome reports inspected-page navigation, when the inspected page URL changes in SPA-style navigation, and when the user triggers manual refresh.
-- Why: In-house SEO QA should show useful results immediately and stay current across route changes without requiring broad host permissions or page overlays.
-- Enforced in: DevTools panel startup, `chrome.devtools.network.onNavigated`, current URL checks through inspected-window evaluation, and the manual refresh action.
+- Rule: Schema analysis must run automatically when the side panel opens, when the active tab changes, when Chrome reports active-tab navigation, when the active tab URL changes in SPA-style navigation, and when the user triggers manual refresh.
+- Why: In-house SEO QA should show useful results immediately and stay current across pages without requiring developer tools to be open.
+- Enforced in: Side panel startup, `chrome.tabs.onActivated`, `chrome.tabs.onUpdated`, current URL checks through `chrome.scripting.executeScript`, and the manual refresh action.
 - Verified by: E2E-style package tests for automatic analysis/navigation wiring, manual QA across full page loads and SPA route changes, and type checks around the analysis scheduler.
 - Edge cases: DOM mutations that do not change URL are not automatic analysis triggers; users can still manually refresh after client-side schema changes that keep the same URL.
 
 ### Analysis Scheduling Is Bounded
 
 - Rule: Only one analysis run should execute at a time, and pending automatic reanalysis should be coalesced instead of stacking repeated runs.
-- Why: DevTools should remain responsive during navigation bursts and SPA route changes.
+- Why: The side panel should remain responsive during navigation bursts and SPA route changes.
 - Enforced in: Panel analysis scheduler state such as in-flight and pending-refresh tracking.
 - Verified by: Code review and E2E/manual navigation checks confirming repeated navigation events do not create concurrent analyses.
-- Edge cases: If an inspected page is temporarily unavailable during navigation, the next navigation event, URL poll, or manual refresh may retry analysis.
+- Edge cases: If the active tab is temporarily unavailable during navigation, the next tab event, URL poll, or manual refresh may retry analysis.
 
 ### Equal First-Class Format Support
 
@@ -94,13 +102,13 @@ These invariants apply to the Chrome DevTools extension for local on-page SEO st
 - Verified by: Type checks and tests requiring severity on every finding.
 - Edge cases: UI labels may include friendly copy, but underlying severity values must remain stable.
 
-### Minimal Permissions By Default
+### Sidebar Permissions Are Explicit
 
-- Rule: The extension must request the smallest Chrome permission set that supports DevTools panel analysis.
-- Why: Minimal permissions improve user trust and Chrome Web Store review likelihood.
-- Enforced in: `manifest.json`, architecture decisions, and review checklist.
-- Verified by: Manual manifest review and Chrome Web Store submission checks.
-- Edge cases: Additional permissions for original HTML fetching or broad host access require an explicit later decision.
+- Rule: The extension must request only the side panel permissions required for automatic active-page analysis: `sidePanel`, `scripting`, `tabs`, and `<all_urls>` host access.
+- Why: A browser sidebar must analyze the active tab from normal browsing contexts and stay current across public sites, staging sites, SPAs, and localhost.
+- Enforced in: `public/manifest.json`, architecture decisions, tests, store-prep docs, and Chrome Web Store permission justifications.
+- Verified by: E2E package tests, manual manifest review, and Chrome Web Store submission checks.
+- Edge cases: More permissions, remote code, telemetry, or original HTML network capture require an explicit later decision.
 
 ## Cross-References
 

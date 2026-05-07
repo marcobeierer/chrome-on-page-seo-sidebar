@@ -1,11 +1,11 @@
 # On-Page SEO Sidebar
 
-Chrome DevTools extension for local on-page SEO structured data QA.
+Chrome side panel extension for local on-page SEO structured data QA.
 
 ## Current Features
 
-- Manifest V3 DevTools panel.
-- Automatic current-DOM analysis from the inspected page, with manual refresh available.
+- Manifest V3 side panel opened from the toolbar.
+- Automatic current-DOM analysis from the active tab, with manual refresh available.
 - JSON-LD extraction with malformed JSON-LD parser findings.
 - Microdata and RDFa extraction from rendered DOM markup.
 - Normalized schema tree with graph links where identifiers are available.
@@ -33,7 +33,7 @@ Build the unpacked extension:
 npm run build
 ```
 
-Load `dist/` as an unpacked extension in Chrome, then open DevTools and select the `On-Page SEO` panel.
+Load `dist/` as an unpacked extension in Chrome, then click the extension toolbar button to open the `On-Page SEO Sidebar` side panel.
 
 ## Notes
 

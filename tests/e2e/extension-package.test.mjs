@@ -10,11 +10,11 @@ test("built extension package contains manifest, panel, bundles, and icons", asy
   const manifest = JSON.parse(await readFile(join(dist, "manifest.json"), "utf8"));
 
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.devtools_page, "devtools.html");
-  assert.equal(existsSync(join(dist, "devtools.html")), true);
+  assert.equal(manifest.side_panel.default_path, "panel.html");
+  assert.equal(manifest.background.service_worker, "background.js");
   assert.equal(existsSync(join(dist, "panel.html")), true);
   assert.equal(existsSync(join(dist, "panel.css")), true);
-  assert.equal(existsSync(join(dist, "devtools.js")), true);
+  assert.equal(existsSync(join(dist, "background.js")), true);
   assert.equal(existsSync(join(dist, "panel.js")), true);
 
   for (const icon of Object.values(manifest.icons)) {
@@ -22,7 +22,7 @@ test("built extension package contains manifest, panel, bundles, and icons", asy
   }
 });
 
-test("DevTools panel shell exposes required first-release views", async () => {
+test("side panel shell exposes required first-release views", async () => {
   const panelHtml = await readFile(join(dist, "panel.html"), "utf8");
   assert.match(panelHtml, /id="refresh"/);
   assert.match(panelHtml, /id="findings-view"/);
@@ -36,19 +36,21 @@ test("DevTools panel shell exposes required first-release views", async () => {
 test("built extension keeps local-only analysis assumptions", async () => {
   const manifest = JSON.parse(await readFile(join(dist, "manifest.json"), "utf8"));
   const panelJs = await readFile(join(dist, "panel.js"), "utf8");
-  const devtoolsJs = await readFile(join(dist, "devtools.js"), "utf8");
+  const backgroundJs = await readFile(join(dist, "background.js"), "utf8");
 
-  assert.equal(manifest.permissions, undefined);
-  assert.equal(manifest.host_permissions, undefined);
-  assert.match(devtoolsJs, /chrome\.devtools\.panels\.create/);
+  assert.deepEqual(manifest.permissions, ["sidePanel", "scripting", "tabs"]);
+  assert.deepEqual(manifest.host_permissions, ["<all_urls>"]);
+  assert.match(backgroundJs, /openPanelOnActionClick/);
   assert.doesNotMatch(panelJs, /\bfetch\s*\(/);
   assert.doesNotMatch(panelJs, /XMLHttpRequest/);
 });
 
-test("panel bundle automatically analyzes on open and navigation", async () => {
+test("side panel bundle automatically analyzes on open and navigation", async () => {
   const panelJs = await readFile(join(dist, "panel.js"), "utf8");
 
   assert.match(panelJs, /scheduleAnalysis\("Analyzing current DOM\.\.\."/);
-  assert.match(panelJs, /chrome\.devtools\.network\.onNavigated\.addListener/);
+  assert.match(panelJs, /chrome\.tabs\.onUpdated\.addListener/);
+  assert.match(panelJs, /chrome\.tabs\.onActivated\.addListener/);
+  assert.match(panelJs, /chrome\.scripting\.executeScript/);
   assert.match(panelJs, /window\.location\.href/);
 });

@@ -353,7 +353,7 @@ summary {
   color: var(--text);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 12px;
-  width: 220px;
+  width: 120px;
 }
 
 .property-table tbody tr:last-child th,

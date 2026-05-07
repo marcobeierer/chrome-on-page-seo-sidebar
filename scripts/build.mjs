@@ -11,10 +11,10 @@ await mkdir(dist, { recursive: true });
 
 await Promise.all([
   esbuild.build({
-    entryPoints: [join(root, "src", "devtools.ts")],
-    outfile: join(dist, "devtools.js"),
+    entryPoints: [join(root, "src", "background.ts")],
+    outfile: join(dist, "background.js"),
     bundle: true,
-    format: "iife",
+    format: "esm",
     target: "chrome120",
     sourcemap: true,
   }),
