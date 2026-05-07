@@ -1,6 +1,8 @@
 import type { RichResultRule, RuleValueShape } from "../analyzer/types";
 
 const docsBase = "https://developers.google.com/search/docs/appearance/structured-data";
+const lastReviewed = "2026-05-07";
+const partialCoverageNote = "Initial bundled rule coverage. Required/recommended fields and value-shape checks need manual verification against representative real pages before findings can be considered reliable.";
 
 export const googleRichResultRules: RichResultRule[] = [
   rule("article", "Article", ["Article", "BlogPosting", "NewsArticle"], "article", ["headline", "image", "datePublished", "author.name"], ["dateModified", "publisher.name"]),
@@ -50,6 +52,9 @@ function rule(
     name,
     schemaTypes,
     sourceUrl: `${docsBase}/${slug}`,
+    status: "partial",
+    lastReviewed,
+    notes: partialCoverageNote,
     required: required.map((path) => ({ path, hint: `Add ${path} for ${name} rich result eligibility.`, valueShape: inferValueShape(path) })),
     recommended: recommended.map((path) => ({ path, hint: `Consider adding ${path} to improve ${name} structured data quality.`, valueShape: inferValueShape(path) })),
   };

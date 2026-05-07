@@ -87,6 +87,9 @@ export interface RichResultRule {
   name: string;
   schemaTypes: string[];
   sourceUrl: string;
+  status: "partial" | "verified";
+  lastReviewed: string;
+  notes: string;
   required: RuleField[];
   recommended: RuleField[];
 }

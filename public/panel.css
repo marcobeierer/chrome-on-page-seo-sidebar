@@ -484,6 +484,10 @@ summary {
   margin-left: 8px;
 }
 
+.copy-control {
+  display: inline-flex;
+}
+
 .child-tree {
   border-left: 2px solid var(--line);
   display: grid;

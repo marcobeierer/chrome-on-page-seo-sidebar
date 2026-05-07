@@ -1,6 +1,9 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
 import type { AnalysisResult, ExtractedPageData, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
 import { inspectedPageAnalysis } from "./inspectedPage";
+import { copyControl, tooltipControl } from "./panel/copyControls";
+import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./panel/treeModel";
+import { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 
 let currentResult: AnalysisResult | null = null;
 let activeView: "findings" | "tree" | "source" = "tree";
@@ -23,7 +26,7 @@ refreshButton.addEventListener("click", () => {
 shortcutSettingsButton.addEventListener("click", () => {
   void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 });
-attachPopoverTooltip(shortcutSettingsButton, "Shortcut", "Configure activation shortcut");
+tooltipControl(shortcutSettingsButton, "Shortcut", "Configure activation shortcut");
 searchInput.addEventListener("input", render);
 severitySelect.addEventListener("change", render);
 formatSelect.addEventListener("change", render);
@@ -324,7 +327,7 @@ function renderTree(): void {
     return;
   }
   const nodes = result.nodes.filter((node) => matchesFormat(node.format));
-  const roots = treeRoots(nodes).filter((node) => treeMatchesQuery(node, nodes, new Set()));
+  const roots = treeRoots(nodes).filter((node) => treeMatchesQuery(node, nodes, (entry) => matchesQuery(nodeSearchText(entry))));
   if (roots.length === 0) {
     view.replaceChildren(emptyState("No matching entities", "Adjust filters to show matching structured data entities."));
     return;
@@ -378,54 +381,20 @@ function nodeDetails(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<st
   const actions = document.createElement("span");
   actions.className = "node-actions";
   actions.append(
-    copyChip("ID", "Node", node.nodeId ?? node.id),
-    copyChip("SRC", "Source", node.sourceId),
+    copyControl({ label: "ID", name: "Node", value: node.nodeId ?? node.id, status: setStatus }),
+    copyControl({ label: "SRC", name: "Source", value: node.sourceId, status: setStatus }),
   );
   if (node.links.length > 0) {
-    actions.append(copyChip("LNK", "Links", node.links.map((link) => `${link.property} -> ${link.target}`).join("\n")));
+    actions.append(copyControl({ label: "LNK", name: "Links", value: node.links.map((link) => `${link.property} -> ${link.target}`).join("\n"), status: setStatus }));
   }
   summary.replaceChildren(title, actions);
 
   const properties = propertyTable(node.properties);
-  const children = childGroups(node, allNodes, ancestors);
+  const children = childGroups(node, allNodes, ancestors, (child) => treeMatchesQuery(child, allNodes, (entry) => matchesQuery(nodeSearchText(entry))));
   const childTree = children.length > 0 ? childTreeElement(children, allNodes, new Set([...ancestors, node.id])) : undefined;
 
   details.replaceChildren(summary, properties, ...(childTree !== undefined ? [childTree] : []));
   return details;
-}
-
-interface ChildGroup {
-  property: string;
-  nodes: SchemaNode[];
-}
-
-function treeRoots(nodes: SchemaNode[]): SchemaNode[] {
-  const childIds = new Set<string>();
-  for (const node of nodes) {
-    for (const link of node.links) {
-      const child = findLinkedNode(link.target, nodes);
-      if (child !== undefined) {
-        childIds.add(child.id);
-      }
-    }
-  }
-  return nodes.filter((node) => !childIds.has(node.id));
-}
-
-function childGroups(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<string>): ChildGroup[] {
-  const groups = new Map<string, SchemaNode[]>();
-  for (const link of node.links) {
-    const child = findLinkedNode(link.target, allNodes);
-    if (child === undefined || ancestors.has(child.id) || child.id === node.id || !treeMatchesQuery(child, allNodes, new Set(ancestors))) {
-      continue;
-    }
-    const group = groups.get(link.property) ?? [];
-    if (!group.some((entry) => entry.id === child.id)) {
-      group.push(child);
-    }
-    groups.set(link.property, group);
-  }
-  return Array.from(groups, ([property, groupNodes]) => ({ property, nodes: groupNodes }));
 }
 
 function childTreeElement(groups: ChildGroup[], allNodes: SchemaNode[], ancestors: Set<string>): HTMLElement {
@@ -440,81 +409,6 @@ function childTreeElement(groups: ChildGroup[], allNodes: SchemaNode[], ancestor
     container.append(groupElement);
   }
   return container;
-}
-
-function findLinkedNode(target: string, nodes: SchemaNode[]): SchemaNode | undefined {
-  return nodes.find((node) => node.id === target || node.nodeId === target);
-}
-
-function treeMatchesQuery(node: SchemaNode, allNodes: SchemaNode[], seen: Set<string>): boolean {
-  if (seen.has(node.id)) {
-    return false;
-  }
-  if (matchesQuery(nodeSearchText(node))) {
-    return true;
-  }
-  const nextSeen = new Set(seen);
-  nextSeen.add(node.id);
-  return node.links.some((link) => {
-    const child = findLinkedNode(link.target, allNodes);
-    return child !== undefined && treeMatchesQuery(child, allNodes, nextSeen);
-  });
-}
-
-function copyChip(label: string, name: string, value: string): HTMLButtonElement {
-  const button = document.createElement("button");
-  const popover = document.createElement("div");
-
-  popover.className = "copy-popover";
-  popover.popover = "manual";
-  const content = document.createElement("span");
-  content.className = "copy-popover-value";
-  content.textContent = value;
-  const hint = document.createElement("span");
-  hint.className = "copy-popover-hint";
-  hint.textContent = "Click to copy";
-  popover.replaceChildren(content, hint);
-  document.body.append(popover);
-
-  button.className = "copy-chip";
-  button.type = "button";
-  button.textContent = label;
-  button.setAttribute("aria-label", `Copy ${name.toLowerCase()}`);
-  button.addEventListener("mouseenter", () => showCopyPopover(button, popover, name));
-  button.addEventListener("mouseleave", () => hideCopyPopover(popover));
-  button.addEventListener("focus", () => showCopyPopover(button, popover, name));
-  button.addEventListener("blur", () => hideCopyPopover(popover));
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    void copyToClipboard(value, name);
-  });
-  return button;
-}
-
-function showCopyPopover(anchor: HTMLElement, popover: HTMLElement, name: string): void {
-  const rect = anchor.getBoundingClientRect();
-  popover.dataset["label"] = name;
-  popover.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
-  popover.style.top = `${rect.bottom + 6}px`;
-  if (!popover.matches(":popover-open")) {
-    popover.showPopover();
-  }
-}
-
-function hideCopyPopover(popover: HTMLElement): void {
-  if (popover.matches(":popover-open")) {
-    popover.hidePopover();
-  }
-}
-
-async function copyToClipboard(value: string, name: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(value);
-    setStatus(`Copied ${name.toLowerCase()} to clipboard.`);
-  } catch {
-    setStatus(`Could not copy ${name.toLowerCase()} to clipboard.`, true);
-  }
 }
 
 function propertyTable(properties: Record<string, unknown>): HTMLElement {
@@ -598,191 +492,15 @@ function sourceDetails(source: SourceBlock): HTMLElement {
   const actions = document.createElement("span");
   actions.className = "node-actions";
   if (source.selector !== undefined) {
-    actions.append(copyChip("LOC", "Location", source.selector));
+    actions.append(copyControl({ label: "LOC", name: "Location", value: source.selector, status: setStatus }));
   }
-  actions.append(copyIconButton("Source", sourceDisplayText(source)));
+  actions.append(copyControl({ name: "Source", value: sourceDisplayText(source), status: setStatus, icon: true }));
   summary.replaceChildren(title, actions);
 
   const code = sourceCodeBlock(source);
 
   details.replaceChildren(summary, code);
   return details;
-}
-
-function copyIconButton(name: string, value: string): HTMLButtonElement {
-  const button = document.createElement("button");
-  const popover = document.createElement("div");
-  const content = document.createElement("span");
-  const hint = document.createElement("span");
-
-  popover.className = "copy-popover";
-  popover.popover = "manual";
-  content.className = "copy-popover-value";
-  content.textContent = `Copy full ${name.toLowerCase()}`;
-  hint.className = "copy-popover-hint";
-  hint.textContent = "Click to copy";
-  popover.replaceChildren(content, hint);
-  document.body.append(popover);
-
-  button.className = "copy-chip copy-icon-chip";
-  button.type = "button";
-  button.setAttribute("aria-label", `Copy ${name.toLowerCase()}`);
-  button.append(copyIconSvg());
-  button.addEventListener("mouseenter", () => showCopyPopover(button, popover, name));
-  button.addEventListener("mouseleave", () => hideCopyPopover(popover));
-  button.addEventListener("focus", () => showCopyPopover(button, popover, name));
-  button.addEventListener("blur", () => hideCopyPopover(popover));
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    void copyToClipboard(value, name);
-  });
-  return button;
-}
-
-function attachPopoverTooltip(anchor: HTMLElement, label: string, value: string): void {
-  const popover = document.createElement("div");
-  const content = document.createElement("span");
-
-  popover.className = "copy-popover";
-  popover.popover = "manual";
-  content.className = "copy-popover-value";
-  content.textContent = value;
-  popover.replaceChildren(content);
-  document.body.append(popover);
-
-  anchor.addEventListener("mouseenter", () => showCopyPopover(anchor, popover, label));
-  anchor.addEventListener("mouseleave", () => hideCopyPopover(popover));
-  anchor.addEventListener("focus", () => showCopyPopover(anchor, popover, label));
-  anchor.addEventListener("blur", () => hideCopyPopover(popover));
-}
-
-function copyIconSvg(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 16 16");
-  svg.setAttribute("aria-hidden", "true");
-  const back = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  back.setAttribute("x", "5");
-  back.setAttribute("y", "3");
-  back.setAttribute("width", "8");
-  back.setAttribute("height", "9");
-  back.setAttribute("rx", "1.5");
-  const front = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  front.setAttribute("x", "3");
-  front.setAttribute("y", "5");
-  front.setAttribute("width", "8");
-  front.setAttribute("height", "9");
-  front.setAttribute("rx", "1.5");
-  svg.append(back, front);
-  return svg;
-}
-
-function sourceCodeBlock(source: SourceBlock): HTMLElement {
-  const displayText = sourceDisplayText(source);
-  if (source.format === "json-ld" && displayText !== source.raw) {
-    return codeBlock(displayText, "json", true);
-  }
-  return codeBlock(displayText, "raw", false);
-}
-
-function sourceDisplayText(source: SourceBlock): string {
-  if (source.format === "json-ld") {
-    try {
-      return JSON.stringify(JSON.parse(source.raw), null, 2);
-    } catch {
-      return source.raw;
-    }
-  }
-  if (source.format === "microdata") {
-    return formatHtmlSnippet(source.raw);
-  }
-  return source.raw;
-}
-
-function formatHtmlSnippet(html: string): string {
-  const doc = new DOMParser().parseFromString(`<template>${html}</template>`, "text/html");
-  const template = doc.querySelector("template");
-  if (template === null) {
-    return html;
-  }
-  const formatted = Array.from(template.content.childNodes).map((node) => formatHtmlNode(node, 0)).join("\n");
-  return formatted.trim() || html;
-}
-
-function formatHtmlNode(node: Node, depth: number): string {
-  const indent = "  ".repeat(depth);
-  if (node.nodeType === Node.TEXT_NODE) {
-    return `${indent}${(node.textContent ?? "").trim()}`.trimEnd();
-  }
-  if (!(node instanceof Element)) {
-    return "";
-  }
-
-  const tag = node.tagName.toLowerCase();
-  const attrs = Array.from(node.attributes).map((attr) => `${attr.name}="${attr.value}"`).join(" ");
-  const open = attrs === "" ? `<${tag}>` : `<${tag} ${attrs}>`;
-  if (isVoidElement(tag)) {
-    return `${indent}${open}`;
-  }
-
-  const children = Array.from(node.childNodes).map((child) => formatHtmlNode(child, depth + 1)).filter((line) => line.trim() !== "");
-  if (children.length === 0) {
-    return `${indent}${open}</${tag}>`;
-  }
-  if (children.length === 1 && !children[0]!.trimStart().startsWith("<")) {
-    return `${indent}${open}${children[0]!.trim()}</${tag}>`;
-  }
-  return [`${indent}${open}`, ...children, `${indent}</${tag}>`].join("\n");
-}
-
-function isVoidElement(tag: string): boolean {
-  return ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"].includes(tag);
-}
-
-function codeBlock(content: string, language: "json" | "raw", highlightJson: boolean): HTMLElement {
-  const pre = document.createElement("pre");
-  pre.className = `code-block ${language}`;
-
-  const code = document.createElement("code");
-  if (highlightJson) {
-    code.append(...jsonSyntaxNodes(content));
-  } else {
-    code.textContent = content;
-  }
-  pre.append(code);
-  return pre;
-}
-
-function jsonSyntaxNodes(json: string): Node[] {
-  const tokenPattern = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"\s*:?)|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
-  const nodes: Node[] = [];
-  let cursor = 0;
-
-  for (const match of json.matchAll(tokenPattern)) {
-    const token = match[0];
-    const index = match.index ?? 0;
-    if (index > cursor) {
-      nodes.push(document.createTextNode(json.slice(cursor, index)));
-    }
-    const span = document.createElement("span");
-    span.className = `json-${jsonTokenClass(token)}`;
-    span.textContent = token;
-    nodes.push(span);
-    cursor = index + token.length;
-  }
-
-  if (cursor < json.length) {
-    nodes.push(document.createTextNode(json.slice(cursor)));
-  }
-  return nodes;
-}
-
-function jsonTokenClass(token: string): string {
-  if (token.endsWith(":")) return "key";
-  if (token === "true" || token === "false") return "boolean";
-  if (token === "null") return "null";
-  if (/^-?\d/.test(token)) return "number";
-  return "string";
 }
 
 function valueType(value: unknown): string {
