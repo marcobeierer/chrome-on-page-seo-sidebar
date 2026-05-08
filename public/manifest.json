@@ -6,9 +6,9 @@
   "action": {
     "default_title": "On-Page SEO Sidebar",
     "default_icon": {
-      "16": "icon16.svg",
-      "48": "icon48.svg",
-      "128": "icon128.svg"
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
     }
   },
   "background": {
@@ -21,8 +21,8 @@
     "default_path": "panel.html"
   },
   "icons": {
-    "16": "icon16.svg",
-    "48": "icon48.svg",
-    "128": "icon128.svg"
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   }
 }
