@@ -19,8 +19,8 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["sidePanel", "scripting", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["activeTab", "sidePanel", "scripting", "tabs"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "side_panel": {
     "default_path": "panel.html"
   },

@@ -41,8 +41,9 @@ test("built extension keeps local-only analysis assumptions", async () => {
   const panelJs = await readFile(join(dist, "panel.js"), "utf8");
   const backgroundJs = await readFile(join(dist, "background.js"), "utf8");
 
-  assert.deepEqual(manifest.permissions, ["sidePanel", "scripting", "tabs"]);
-  assert.deepEqual(manifest.host_permissions, ["<all_urls>"]);
+  assert.deepEqual(manifest.permissions, ["activeTab", "sidePanel", "scripting", "tabs"]);
+  assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
   assert.match(backgroundJs, /openPanelOnActionClick/);
   assert.equal(manifest.commands, undefined);
   assert.doesNotMatch(panelJs, /\bfetch\s*\(/);

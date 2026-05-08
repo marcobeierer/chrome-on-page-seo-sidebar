@@ -21,7 +21,12 @@ const severitySelect = requireElement<HTMLSelectElement>("severity");
 const formatSelect = requireElement<HTMLSelectElement>("format");
 
 refreshButton.addEventListener("click", () => {
-  scheduleAnalysis("Manual refresh requested.", 0);
+  if (pendingRefresh !== undefined) {
+    window.clearTimeout(pendingRefresh);
+    pendingRefresh = undefined;
+  }
+  setStatus("Manual refresh requested.");
+  void refreshAnalysis(true);
 });
 shortcutSettingsButton.addEventListener("click", () => {
   void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
@@ -76,7 +81,7 @@ window.setInterval(() => {
 setStatus("Opening panel. Analyzing current DOM...");
 scheduleAnalysis("Analyzing current DOM...", 0);
 
-async function refreshAnalysis(): Promise<void> {
+async function refreshAnalysis(canRequestAccess = false): Promise<void> {
   if (isAnalyzing) {
     scheduleAnalysis("Analysis already running. Rechecking shortly...", 300);
     return;
@@ -87,7 +92,7 @@ async function refreshAnalysis(): Promise<void> {
   setStatus("Analyzing current DOM...");
 
   try {
-    const extracted = await evaluateActiveTabPage();
+    const extracted = await evaluateActiveTabPage(canRequestAccess);
     currentResult = analyzeExtractedData(extracted);
     lastObservedUrl = currentResult.url;
     setStatus(`Analyzed ${currentResult.title || currentResult.url} at ${formatTime(currentResult.analyzedAt)}.`);
@@ -130,11 +135,11 @@ async function refreshIfUrlChanged(): Promise<void> {
   }
 }
 
-function evaluateActiveTabPage(): Promise<ExtractedPageData> {
-  return evaluateActiveTabFunction(inspectedPageAnalysis);
+function evaluateActiveTabPage(canRequestAccess: boolean): Promise<ExtractedPageData> {
+  return evaluateActiveTabFunction(inspectedPageAnalysis, canRequestAccess);
 }
 
-async function evaluateActiveTabFunction<T>(func: () => T): Promise<T> {
+async function evaluateActiveTabFunction<T>(func: () => T, canRequestAccess = false): Promise<T> {
   const tab = await getActiveTab();
   if (tab.id === undefined) {
     throw new Error("No active tab is available for analysis.");
@@ -144,8 +149,26 @@ async function evaluateActiveTabFunction<T>(func: () => T): Promise<T> {
   }
 
   lastActiveTabId = tab.id;
+  if (canRequestAccess) {
+    const granted = await requestTabAccess(tab.url);
+    if (!granted) {
+      throw new Error(missingTabAccessMessage(tab.url));
+    }
+  }
+
+  try {
+    return await executeActiveTabFunction(tab.id, func);
+  } catch (error) {
+    if (!isMissingHostPermissionError(error)) {
+      throw error;
+    }
+    throw new Error(missingTabAccessMessage(tab.url));
+  }
+}
+
+async function executeActiveTabFunction<T>(tabId: number, func: () => T): Promise<T> {
   const [result] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
+    target: { tabId },
     func,
   });
 
@@ -153,6 +176,43 @@ async function evaluateActiveTabFunction<T>(func: () => T): Promise<T> {
     throw new Error("The page did not return analysis data.");
   }
   return result.result as T;
+}
+
+async function requestTabAccess(url: string | undefined): Promise<boolean> {
+  const origin = permissionOrigin(url);
+  if (origin === undefined) {
+    return false;
+  }
+  return chrome.permissions.request({ origins: [origin] });
+}
+
+function permissionOrigin(url: string | undefined): string | undefined {
+  try {
+    const parsed = new URL(url ?? "");
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return undefined;
+    }
+    return `${parsed.protocol}//${parsed.hostname}/*`;
+  } catch {
+    return undefined;
+  }
+}
+
+function isMissingHostPermissionError(error: unknown): boolean {
+  return error instanceof Error && /must request permission to access this host/i.test(error.message);
+}
+
+function missingTabAccessMessage(url: string | undefined): string {
+  const origin = pageOrigin(url);
+  return `Chrome has not granted access to ${origin}. Click Refresh and allow site access to analyze this page.`;
+}
+
+function pageOrigin(url: string | undefined): string {
+  try {
+    return new URL(url ?? "").origin;
+  } catch {
+    return "this page";
+  }
 }
 
 async function getActiveTab(): Promise<chrome.tabs.Tab> {
