@@ -35,8 +35,8 @@ On-Page SEO Sidebar does not collect, transmit, sell, or share user data. Struct
 
 - Run `npm run check`.
 - Run `npm audit`.
-- Build with `npm run build`.
-- Zip the contents of `dist/`, not the project root.
+- Build and package with `npm run package:store`.
+- Upload the generated zip from `release/`.
 - Review `public/manifest.json` for minimal permissions.
 - Review bundled Google rich result rules against current Google Search Central docs.
 - Add final screenshots, icon assets, listing copy, and privacy disclosure in Chrome Web Store Developer Dashboard.

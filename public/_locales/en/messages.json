@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "On-Page SEO Sidebar",
+    "description": "Extension name shown in Chrome and the Web Store."
+  },
+  "extShortName": {
+    "message": "SEO Sidebar",
+    "description": "Short extension name for compact Chrome UI labels."
+  },
+  "extDescription": {
+    "message": "Analyze on-page SEO metadata and structured data locally in Chrome's side panel.",
+    "description": "Short extension description shown in Chrome and the Web Store."
+  }
+}

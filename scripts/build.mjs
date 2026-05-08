@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import * as esbuild from "esbuild";
 
@@ -38,5 +38,5 @@ await Promise.all([
 ]);
 
 for (const entry of await readdir(publicDir)) {
-  await copyFile(join(publicDir, entry), join(dist, entry));
+  await cp(join(publicDir, entry), join(dist, entry), { recursive: true });
 }

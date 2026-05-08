@@ -1,11 +1,12 @@
 {
   "name": "on-page-seo-sidebar",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Chrome side panel extension for local on-page SEO structured data analysis.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "package:store": "npm run build && node scripts/package-store.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/**/*.test.mjs",
     "test:e2e": "npm run build && node --test tests/e2e/**/*.test.mjs",

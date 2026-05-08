@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "On-Page SEO Sidebar",
-  "version": "0.1.0",
-  "description": "Inspect and validate on-page structured data locally from Chrome's side panel.",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
+  "version": "1.0.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "minimum_chrome_version": "114",
+  "homepage_url": "https://www.marcobeierer.com/tools/chrome-on-page-seo-sidebar",
   "action": {
-    "default_title": "On-Page SEO Sidebar",
+    "default_title": "__MSG_extName__",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
