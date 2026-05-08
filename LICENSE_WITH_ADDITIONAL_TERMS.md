@@ -1,0 +1,28 @@
+# License
+
+Copyright (c) 2026–present Marco Beierer
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License version 3 as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+## Additional terms under GNU Affero General Public License version 3 section 7
+
+In accordance with Section 7(b) of the GNU Affero General Public License version 3, the following additional terms are added to preserve attribution notices under Section 5(d):
+
+1. A visible menu item labeled «Legal», «License Information», «About», or an equivalent term must be present in the main menu of the program linking to the attribution page described below.
+
+The attribution page must not be removed or modified so as to delete or obscure the required attribution notices. However, the attribution page may be extended, including by adding:
+
+- additional copyright holders or contributors,
+- notices describing modifications made to the program, or
+- other legally required or informative notices, provided that the required attribution notices remain clearly identifiable and reasonably prominent.
+
+The attribution notices required:
+
+- may be presented in a manner consistent with the overall visual design of the program, but
+- must not be deliberately hidden, obscured, or rendered non-functional.
+
+This requirement does not apply where the Program is used exclusively without an interactive user interface.
