@@ -2,6 +2,8 @@
 
 Chrome side panel extension for local on-page SEO structured data QA.
 
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/on-page-seo-sidebar/jlcmjobmcfmldeafdnolahifcfajegah).
+
 ## Current Features
 
 - Manifest V3 side panel opened from the toolbar.
