@@ -5,9 +5,14 @@ import { spawn } from "node:child_process";
 import packageJson from "../package.json" with { type: "json" };
 
 const root = new URL("..", import.meta.url).pathname;
-const dist = join(root, "dist");
+const target = process.argv[2] ?? "chrome";
+if (!["chrome", "firefox"].includes(target)) {
+  throw new Error(`Unknown package target "${target}". Use chrome or firefox.`);
+}
+
+const dist = join(root, "dist", target);
 const releaseDir = join(root, "release");
-const archiveName = `${packageJson.name}-${packageJson.version}.zip`;
+const archiveName = `${packageJson.name}-${target}-${packageJson.version}.zip`;
 const archivePath = join(releaseDir, archiveName);
 
 await access(join(dist, "manifest.json"), constants.R_OK);

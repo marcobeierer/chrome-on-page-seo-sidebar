@@ -1,12 +1,12 @@
 # On-Page SEO Sidebar
 
-Chrome side panel extension for local on-page SEO structured data QA.
+Browser sidebar extension for local on-page SEO structured data QA.
 
 Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/on-page-seo-sidebar/jlcmjobmcfmldeafdnolahifcfajegah).
 
 ## Current Features
 
-- Manifest V3 side panel opened from the toolbar.
+- Manifest V3 sidebar/side panel opened from the toolbar.
 - Automatic current-DOM analysis from the active tab, with manual refresh available.
 - Page title, meta description, canonical, and hreflang extraction.
 - JSON-LD extraction with malformed JSON-LD parser findings.
@@ -30,15 +30,17 @@ Run the full verification suite:
 npm run check
 ```
 
-Build the unpacked extension:
+Build the unpacked extensions:
 
 ```sh
 npm run build
 ```
 
-Load `dist/` as an unpacked extension in Chrome, then click the extension toolbar button to open the `On-Page SEO Sidebar` side panel.
+Load `dist/chrome/` as an unpacked extension in Chrome, then click the extension toolbar button to open the `On-Page SEO Sidebar` side panel.
 
-Use Chrome's extension activation shortcut settings at `chrome://extensions/shortcuts` if you want to open it from the keyboard.
+Load `dist/firefox/` as a temporary add-on in Firefox from `about:debugging`, then open the `On-Page SEO Sidebar` from Firefox's sidebar UI or toolbar behavior.
+
+Use Chrome's extension activation shortcut settings at `chrome://extensions/shortcuts`, or Firefox's Add-ons Manager at `about:addons`, if you want to configure browser shortcuts.
 
 ## Notes
 

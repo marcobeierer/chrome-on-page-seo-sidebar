@@ -1,5 +1,6 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
 import type { AnalysisResult, ExtractedPageData, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
+import { extensionApi, isFirefoxRuntime } from "./extensionApi";
 import { inspectedPageAnalysis } from "./inspectedPage";
 import { copyControl, tooltipControl } from "./panel/copyControls";
 import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./panel/treeModel";
@@ -29,9 +30,9 @@ refreshButton.addEventListener("click", () => {
   void refreshAnalysis(true);
 });
 shortcutSettingsButton.addEventListener("click", () => {
-  void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+  void extensionApi.tabs.create({ url: shortcutSettingsUrl() });
 });
-tooltipControl(shortcutSettingsButton, "Shortcut", "Configure activation shortcut");
+tooltipControl(shortcutSettingsButton, "Shortcut", shortcutSettingsHelp());
 searchInput.addEventListener("input", render);
 severitySelect.addEventListener("change", render);
 formatSelect.addEventListener("change", render);
@@ -54,13 +55,13 @@ for (const card of Array.from(document.querySelectorAll<HTMLButtonElement>("[dat
   });
 }
 
-chrome.tabs.onActivated.addListener((activeInfo) => {
+extensionApi.tabs.onActivated.addListener((activeInfo) => {
   lastActiveTabId = activeInfo.tabId;
   lastObservedUrl = null;
   scheduleAnalysis("Active tab changed. Analyzing current page...", 250);
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+extensionApi.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (tabId !== lastActiveTabId) {
     return;
   }
@@ -145,7 +146,7 @@ async function evaluateActiveTabFunction<T>(func: () => T, canRequestAccess = fa
     throw new Error("No active tab is available for analysis.");
   }
   if (isRestrictedUrl(tab.url)) {
-    throw new Error("Chrome does not allow extensions to analyze this page. Open a normal website, staging page, or localhost URL.");
+    throw new Error("This browser does not allow extensions to analyze this page. Open a normal website, staging page, or localhost URL.");
   }
 
   lastActiveTabId = tab.id;
@@ -167,7 +168,7 @@ async function evaluateActiveTabFunction<T>(func: () => T, canRequestAccess = fa
 }
 
 async function executeActiveTabFunction<T>(tabId: number, func: () => T): Promise<T> {
-  const [result] = await chrome.scripting.executeScript({
+  const [result] = await extensionApi.scripting.executeScript({
     target: { tabId },
     func,
   });
@@ -183,7 +184,7 @@ async function requestTabAccess(url: string | undefined): Promise<boolean> {
   if (origin === undefined) {
     return false;
   }
-  return chrome.permissions.request({ origins: [origin] });
+  return extensionApi.permissions.request({ origins: [origin] });
 }
 
 function permissionOrigin(url: string | undefined): string | undefined {
@@ -199,12 +200,12 @@ function permissionOrigin(url: string | undefined): string | undefined {
 }
 
 function isMissingHostPermissionError(error: unknown): boolean {
-  return error instanceof Error && /must request permission to access this host/i.test(error.message);
+  return error instanceof Error && /(must request permission to access this host|missing host permission|cannot access contents of)/i.test(error.message);
 }
 
 function missingTabAccessMessage(url: string | undefined): string {
   const origin = pageOrigin(url);
-  return `Chrome has not granted access to ${origin}. Click Refresh and allow site access to analyze this page.`;
+  return `This browser has not granted access to ${origin}. Click Refresh and allow site access to analyze this page.`;
 }
 
 function pageOrigin(url: string | undefined): string {
@@ -216,7 +217,7 @@ function pageOrigin(url: string | undefined): string {
 }
 
 async function getActiveTab(): Promise<chrome.tabs.Tab> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await extensionApi.tabs.query({ active: true, currentWindow: true });
   if (tab === undefined) {
     throw new Error("No active tab found. Select a page and reopen the sidebar.");
   }
@@ -224,7 +225,18 @@ async function getActiveTab(): Promise<chrome.tabs.Tab> {
 }
 
 function isRestrictedUrl(url: string | undefined): boolean {
-  return url !== undefined && /^(chrome|chrome-extension|edge|about):/i.test(url);
+  return url !== undefined && /^(chrome|chrome-extension|edge|about|moz-extension):/i.test(url);
+}
+
+function shortcutSettingsUrl(): string {
+  return isFirefoxRuntime() ? "about:addons" : "chrome://extensions/shortcuts";
+}
+
+function shortcutSettingsHelp(): string {
+  if (isFirefoxRuntime()) {
+    return "Open Firefox Add-ons Manager to configure extension shortcuts";
+  }
+  return "Configure activation shortcut";
 }
 
 function render(): void {

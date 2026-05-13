@@ -2,20 +2,26 @@
   "name": "on-page-seo-sidebar",
   "version": "1.0.0",
   "private": true,
-  "description": "Chrome side panel extension for local on-page SEO structured data analysis.",
+  "description": "Browser sidebar extension for local on-page SEO structured data analysis.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "package:store": "npm run build && node scripts/package-store.mjs",
+    "build:chrome": "node scripts/build.mjs chrome",
+    "build:firefox": "node scripts/build.mjs firefox",
+    "package:store": "npm run package:chrome",
+    "package:chrome": "npm run build:chrome && node scripts/package-store.mjs chrome",
+    "package:firefox": "npm run build:firefox && node scripts/package-store.mjs firefox",
+    "lint:firefox": "npm run build:firefox && web-ext lint --source-dir dist/firefox",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/**/*.test.mjs",
     "test:e2e": "npm run build && node --test tests/e2e/**/*.test.mjs",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run lint:firefox && npm run build"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
     "esbuild": "^0.28.0",
     "linkedom": "^0.18.12",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "web-ext": "^10.1.0"
   }
 }

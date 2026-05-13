@@ -1,8 +1,8 @@
-# Chrome Extension Schema Invariants
+# Browser Extension Schema Invariants
 
 ## Scope
 
-These invariants apply to the Chrome side panel extension for local on-page SEO structured-data extraction, normalization, validation, and display.
+These invariants apply to the browser sidebar extension for local on-page SEO structured-data extraction, normalization, validation, and display.
 
 ## Invariants
 
@@ -10,14 +10,14 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 
 - Rule: The extension, store listing, package-facing documentation, side panel UI, and icon accessibility labels must use `On-Page SEO Sidebar`.
 - Why: The product is a browser side panel, so the visible release surfaces should use the full descriptive name consistently.
-- Enforced in: `public/manifest.json`, `package.json`, README, store-prep docs, panel HTML, icon accessibility labels, and Chrome Web Store materials.
-- Verified by: Build/package checks, manual Chrome extension load, and text search before release.
+- Enforced in: generated browser manifests, `package.json`, README, store-prep docs, panel HTML, icon accessibility labels, and store materials.
+- Verified by: Build/package checks, manual Chrome and Firefox extension loads, and text search before release.
 - Edge cases: Historical planning docs may mention earlier working names, but user-facing release surfaces should not.
 
 ### Local-Only Analysis
 
 - Rule: Page content, structured data, URLs, findings, and analysis results must not be transmitted to external services.
-- Why: The extension must be safe for authenticated staging pages and support the Chrome Web Store privacy claim of no data collection.
+- Why: The extension must be safe for authenticated staging pages and support extension store privacy claims of no data collection.
 - Enforced in: Extension architecture, network usage, dependency choices, and store disclosures.
 - Verified by: Code review, package inspection, E2E monitoring for network requests, and privacy disclosure review.
 - Edge cases: Loading bundled extension assets is allowed; remote rule fetching, telemetry, AI analysis, and analytics are not allowed in the first release.
@@ -56,9 +56,9 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 
 ### Analysis Runs On Open And Navigation
 
-- Rule: Schema analysis must run automatically when the side panel opens, when the active tab changes, when Chrome reports active-tab navigation, when the active tab URL changes in SPA-style navigation, and when the user triggers manual refresh.
+- Rule: Schema analysis must run automatically when the sidebar opens, when the active tab changes, when the browser reports active-tab navigation, when the active tab URL changes in SPA-style navigation, and when the user triggers manual refresh.
 - Why: In-house SEO QA should show useful results immediately and stay current across pages without requiring developer tools to be open.
-- Enforced in: Side panel startup, `chrome.tabs.onActivated`, `chrome.tabs.onUpdated`, current URL checks through `chrome.scripting.executeScript`, and the manual refresh action.
+- Enforced in: Sidebar startup, active-tab events, current URL checks through the browser scripting API, and the manual refresh action.
 - Verified by: E2E-style package tests for automatic analysis/navigation wiring, manual QA across full page loads and SPA route changes, and type checks around the analysis scheduler.
 - Edge cases: DOM mutations that do not change URL are not automatic analysis triggers; users can still manually refresh after client-side schema changes that keep the same URL.
 
@@ -128,10 +128,10 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 
 ### Sidebar Permissions Are Explicit
 
-- Rule: The extension must request only the side panel permissions required for automatic active-page analysis: `sidePanel`, `scripting`, `tabs`, and `<all_urls>` host access.
+- Rule: Each browser package must request only the sidebar permissions required for automatic active-page analysis: Chrome uses `sidePanel`, `scripting`, `tabs`, and optional host access; Firefox uses `sidebar_action`, `scripting`, `tabs`, and optional host access.
 - Why: A browser sidebar must analyze the active tab from normal browsing contexts and stay current across public sites, staging sites, SPAs, and localhost.
-- Enforced in: `public/manifest.json`, architecture decisions, tests, store-prep docs, and Chrome Web Store permission justifications.
-- Verified by: E2E package tests, manual manifest review, and Chrome Web Store submission checks.
+- Enforced in: generated manifests, architecture decisions, tests, store-prep docs, and store permission justifications.
+- Verified by: E2E package tests, manual manifest review, Chrome Web Store checks, and AMO checks.
 - Edge cases: More permissions, remote code, telemetry, or original HTML network capture require an explicit later decision.
 
 ## Cross-References

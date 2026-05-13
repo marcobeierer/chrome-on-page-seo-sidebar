@@ -21,7 +21,7 @@ On-Page SEO Sidebar does not collect, transmit, sell, or share user data. Struct
 
 ## Manual QA Checklist
 
-- Load `dist/` as an unpacked extension in latest stable Chrome.
+- Load `dist/chrome/` as an unpacked extension in latest stable Chrome.
 - Open the side panel on a public page with JSON-LD and verify the panel detects sources, entities, raw JSON, and findings.
 - Open the side panel on a page with malformed JSON-LD and verify an error includes raw parser detail plus a friendly hint.
 - Open a Microdata fixture/page and verify entity properties, source display, and Google findings.
@@ -35,8 +35,8 @@ On-Page SEO Sidebar does not collect, transmit, sell, or share user data. Struct
 
 - Run `npm run check`.
 - Run `npm audit`.
-- Build and package with `npm run package:store`.
+- Build and package with `npm run package:chrome` or `npm run package:store`.
 - Upload the generated zip from `release/`.
-- Review `public/manifest.json` for minimal permissions.
+- Review the generated `dist/chrome/manifest.json` for minimal permissions.
 - Review bundled Google rich result rules against current Google Search Central docs.
 - Add final screenshots, icon assets, listing copy, and privacy disclosure in Chrome Web Store Developer Dashboard.
