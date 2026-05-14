@@ -8,7 +8,12 @@ import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./pan
 import { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 
 let currentResult: AnalysisResult | null = null;
-let activeTopTab: "gsc" | "on-page" = "on-page";
+type TopTab = "gsc" | "help" | "on-page";
+type HelpTopic = "help-chrome-signin" | "help-connect-gsc" | "help-matching-property" | "help-property-access" | "help-rate-limit";
+
+const TOP_TABS: TopTab[] = ["on-page", "gsc", "help"];
+
+let activeTopTab: TopTab = "on-page";
 let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
 let pageDataOpen = true;
@@ -108,7 +113,7 @@ for (const control of [gscStartDateInput, gscEndDateInput, gscSearchTypeSelect, 
 
 for (const tab of Array.from(document.querySelectorAll<HTMLButtonElement>(".top-tab"))) {
   tab.addEventListener("click", () => {
-    activateTopTab(tab.dataset["topTab"] === "gsc" ? "gsc" : "on-page");
+    activateTopTab(topTabFromDataset(tab.dataset["topTab"]));
   });
   tab.addEventListener("keydown", (event) => {
     handleTopTabKeydown(event);
@@ -321,7 +326,11 @@ function render(): void {
   renderGsc();
 }
 
-function activateTopTab(tab: typeof activeTopTab): void {
+function topTabFromDataset(value: string | undefined): TopTab {
+  return value === "gsc" || value === "help" ? value : "on-page";
+}
+
+function activateTopTab(tab: TopTab): void {
   activeTopTab = tab;
   for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>(".top-tab"))) {
     const active = button.dataset["topTab"] === tab;
@@ -346,7 +355,9 @@ function handleTopTabKeydown(event: KeyboardEvent): void {
     return;
   }
   event.preventDefault();
-  const nextTab: typeof activeTopTab = activeTopTab === "on-page" ? "gsc" : "on-page";
+  const currentIndex = Math.max(TOP_TABS.indexOf(activeTopTab), 0);
+  const direction = event.key === "ArrowRight" ? 1 : -1;
+  const nextTab = TOP_TABS[(currentIndex + direction + TOP_TABS.length) % TOP_TABS.length] ?? "on-page";
   activateTopTab(nextTab);
   document.querySelector<HTMLButtonElement>(`.top-tab[data-top-tab="${nextTab}"]`)?.focus();
 }
@@ -720,7 +731,7 @@ function renderGsc(): void {
 
   target.textContent = gscState.targetUrl === undefined ? "Analyze a page to choose a Search Console target URL." : `Target URL: ${gscState.targetUrl}`;
   status.classList.toggle("error", gscState.error !== undefined);
-  status.textContent = gscStatusText();
+  renderGscStatus(status);
   gscConnectButton.hidden = gscState.connected;
   gscDisconnectButton.hidden = !gscState.connected;
   gscRefreshButton.hidden = !gscState.connected || gscState.selectedProperty === undefined || gscState.targetUrl === undefined;
@@ -741,24 +752,24 @@ function renderGsc(): void {
     results.replaceChildren(emptyState("No page target", "Analyze a normal HTTP or HTTPS page before loading Search Console data."));
     return;
   }
-  if (!gscState.connected) {
-    results.replaceChildren(emptyState("Connect Search Console", "Use a Google account with Search Console access to see this page's ranking queries."));
-    return;
-  }
   if (gscState.loading) {
     results.replaceChildren(emptyState("Loading GSC data", "Fetching properties and page query rows from Google Search Console..."));
     return;
   }
+  if (gscState.error !== undefined) {
+    results.replaceChildren(emptyState(gscErrorTitle(gscState.error), gscState.error.message, helpLink(gscHelpTopic(gscState.error))));
+    return;
+  }
+  if (!gscState.connected) {
+    results.replaceChildren(emptyState("Connect Search Console", "Use a Google account with Search Console access to see this page's ranking queries."));
+    return;
+  }
   if (gscState.properties.length === 0) {
-    results.replaceChildren(emptyState("No accessible properties", "This Google account does not expose matching Search Console properties to the extension."));
+    results.replaceChildren(emptyState("No accessible properties", "The Google account signed into Chrome has no Search Console properties available here. Check that this Chrome profile uses the right Google account and that the site is verified in Search Console.", helpLink("help-property-access")));
     return;
   }
   if (gscState.selectedProperty === undefined) {
-    results.replaceChildren(emptyState("No matching property", "Select a Search Console property that contains the target URL."));
-    return;
-  }
-  if (gscState.error !== undefined) {
-    results.replaceChildren(emptyState("GSC request failed", gscState.error.message));
+    results.replaceChildren(emptyState("No matching property", "No listed Search Console property clearly contains this page URL. Select the correct property manually or verify that this page belongs to a Search Console property on the signed-in Google account.", helpLink("help-matching-property")));
     return;
   }
   if (gscState.report === undefined) {
@@ -775,6 +786,55 @@ function renderGsc(): void {
     return;
   }
   results.replaceChildren(gscReportMeta(gscState.report, rows.length), gscTotals(gscState.report, rows), gscTableHeading(), gscTable(rows));
+}
+
+function renderGscStatus(status: HTMLElement): void {
+  if (gscState.error === undefined) {
+    status.textContent = gscStatusText();
+    return;
+  }
+  status.replaceChildren(document.createTextNode(gscState.error.message), document.createTextNode(" "), helpLink(gscHelpTopic(gscState.error)));
+}
+
+function gscErrorTitle(error: GscApiError): string {
+  if (error.code === "browser-signin-disabled") return "Chrome Sign-in is off";
+  if (error.code === "signed-out") return "Search Console is not connected";
+  if (error.code === "PERMISSION_DENIED" || error.code === "http-403") return "Search Console access denied";
+  if (error.code === "NOT_FOUND" || error.code === "http-404") return "Search Console property not found";
+  if (error.code === "RESOURCE_EXHAUSTED" || error.code === "http-429") return "Search Console is rate limiting requests";
+  return "GSC request failed";
+}
+
+function gscHelpTopic(error: GscApiError): HelpTopic {
+  if (error.code === "browser-signin-disabled") return "help-chrome-signin";
+  if (error.code === "PERMISSION_DENIED" || error.code === "http-403") return "help-property-access";
+  if (error.code === "NOT_FOUND" || error.code === "http-404") return "help-matching-property";
+  if (error.code === "RESOURCE_EXHAUSTED" || error.code === "http-429") return "help-rate-limit";
+  return "help-connect-gsc";
+}
+
+function helpLink(topic: HelpTopic, label = "Open Help"): HTMLAnchorElement {
+  const link = document.createElement("a");
+  link.href = `#${topic}`;
+  link.textContent = label;
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    openHelpTopic(topic);
+  });
+  return link;
+}
+
+function openHelpTopic(topic: HelpTopic): void {
+  activateTopTab("help");
+  window.history.replaceState(null, "", `#${topic}`);
+  window.requestAnimationFrame(() => {
+    const question = document.getElementById(topic);
+    if (question instanceof HTMLDetailsElement) {
+      question.open = true;
+      question.scrollIntoView({ block: "start", behavior: "smooth" });
+      question.querySelector<HTMLElement>("summary")?.focus();
+    }
+  });
 }
 
 function renderGscControls(): void {
@@ -1178,14 +1238,14 @@ function sourceSearchText(source: SourceBlock): string {
   return [source.id, source.label, source.format, source.selector, source.raw].filter(Boolean).join(" ");
 }
 
-function emptyState(title: string, body: string): HTMLElement {
+function emptyState(title: string, body: string, action?: HTMLElement): HTMLElement {
   const section = document.createElement("section");
   section.className = "empty";
   const heading = document.createElement("h2");
   heading.textContent = title;
   const paragraph = document.createElement("p");
   paragraph.textContent = body;
-  section.replaceChildren(heading, paragraph);
+  section.replaceChildren(heading, paragraph, ...(action === undefined ? [] : [action]));
   return section;
 }
 

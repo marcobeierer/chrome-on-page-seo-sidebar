@@ -121,7 +121,7 @@ async function getAuthToken(interactive: boolean): Promise<string> {
   const result = await chrome.identity.getAuthToken({ interactive });
   const token = typeof result === "string" ? result : result?.token;
   if (token === undefined || token === "") {
-    throw { code: "signed-out", message: "Connect Google Search Console to view page query data." } satisfies GscApiError;
+    throw { code: "signed-out", message: "Google Search Console is not connected. Sign into Chrome with a Google account that has Search Console access, approve the permission request, then click Connect again." } satisfies GscApiError;
   }
   return token;
 }
@@ -141,12 +141,33 @@ async function fetchJson<T>(url: string, token: string, init: RequestInit = {}):
 }
 
 async function gscFetchError(response: Response): Promise<GscApiError> {
+  const fallbackCode = `http-${response.status}`;
+  let code = fallbackCode;
+  let message = response.statusText;
   try {
     const body = (await response.json()) as { error?: { status?: string; message?: string } };
-    return { code: body.error?.status ?? `http-${response.status}`, message: body.error?.message ?? response.statusText };
+    code = body.error?.status ?? fallbackCode;
+    message = body.error?.message ?? response.statusText;
   } catch {
-    return { code: `http-${response.status}`, message: response.statusText };
+    // Use the status text below when Google does not return a JSON error body.
   }
+  return { code, message: userFacingFetchErrorMessage(response.status, code, message) };
+}
+
+function userFacingFetchErrorMessage(status: number, code: string, message: string): string {
+  if (status === 401 || code === "UNAUTHENTICATED") {
+    return "Google Search Console authorization expired. Click Connect again and approve read-only Search Console access.";
+  }
+  if (status === 403 || code === "PERMISSION_DENIED") {
+    return "This Google account cannot read the selected Search Console property. Sign into the correct Chrome profile or choose a property this account can access.";
+  }
+  if (status === 404 || code === "NOT_FOUND") {
+    return "Search Console could not find the selected property. Choose the exact property that contains this page URL.";
+  }
+  if (status === 429 || code === "RESOURCE_EXHAUSTED") {
+    return "Search Console is temporarily rate limiting requests. Wait a few minutes, then click Refresh GSC.";
+  }
+  return `Search Console request failed: ${message}`;
 }
 
 function normalizeGscError(error: unknown): GscApiError {
@@ -156,10 +177,10 @@ function normalizeGscError(error: unknown): GscApiError {
   if (error instanceof Error) {
     const message = chrome.runtime.lastError?.message ?? error.message;
     if (/turned off browser signin|browser sign.?in/i.test(message)) {
-      return { code: "browser-signin-disabled", message: "Chrome browser sign-in is turned off. Enable Chrome sign-in and sign into Chrome before connecting Google Search Console." };
+      return { code: "browser-signin-disabled", message: "Chrome Sign-in is turned off. Turn on Chrome Sign-in, sign into Chrome with a Google account that has Search Console access, then click Connect again." };
     }
     if (/OAuth2 not granted|not signed in|user did not approve|Authorization page could not be loaded|canceled|cancelled/i.test(message)) {
-      return { code: "signed-out", message: "Connect Google Search Console to view page query data." };
+      return { code: "signed-out", message: "Google Search Console is not connected. Sign into Chrome with a Google account that has Search Console access, approve the permission request, then click Connect again." };
     }
     return { code: "error", message };
   }

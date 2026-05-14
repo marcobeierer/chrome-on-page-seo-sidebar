@@ -27,6 +27,7 @@
       <nav class="top-tabs" role="tablist" aria-label="Sidebar sections">
         <button id="on-page-top-tab" class="top-tab active" type="button" role="tab" aria-selected="true" aria-controls="on-page-panel" data-top-tab="on-page">On-page</button>
         <button id="gsc-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="gsc-panel" data-top-tab="gsc">Search Console (GSC)</button>
+        <button id="help-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="help-panel" data-top-tab="help">Help</button>
       </nav>
 
       <section id="on-page-panel" class="top-panel active" role="tabpanel" aria-labelledby="on-page-top-tab">
@@ -159,6 +160,65 @@
           </section>
 
           <div id="gsc-results" class="gsc-results"></div>
+        </section>
+      </section>
+
+      <section id="help-panel" class="top-panel" role="tabpanel" aria-labelledby="help-top-tab" hidden>
+        <section class="help-card" aria-labelledby="gsc-help-title">
+          <p class="eyebrow">Help</p>
+          <h2 id="gsc-help-title">Connect Google Search Console</h2>
+          <p class="help-intro">Open the question that matches the error you see. Error messages in the Search Console tab link directly to the relevant question.</p>
+
+          <details id="help-chrome-signin" class="help-question">
+            <summary>How do I enable Chrome Sign-in?</summary>
+            <ol class="help-steps">
+              <li>Open Chrome settings.</li>
+              <li>Turn on Chrome Sign-in.</li>
+              <li>Sign into Chrome with the Google account that has Search Console access.</li>
+              <li>Return to this extension and click Connect again.</li>
+            </ol>
+            <p class="help-note">Signing into a Google website is not enough when Chrome Sign-in is disabled. The extension reads Search Console through the Google account signed into Chrome.</p>
+          </details>
+
+          <details id="help-connect-gsc" class="help-question">
+            <summary>How do I connect Google Search Console?</summary>
+            <ol class="help-steps">
+              <li>Open a normal HTTP or HTTPS page from the site you want to check.</li>
+              <li>Open the Search Console (GSC) tab.</li>
+              <li>Click Connect.</li>
+              <li>Choose the Google account that has Search Console access.</li>
+              <li>Approve the permission request for read-only Search Console access.</li>
+            </ol>
+          </details>
+
+          <details id="help-property-access" class="help-question">
+            <summary>Why does it say there are no accessible properties?</summary>
+            <ol class="help-steps">
+              <li>Confirm Chrome is signed into the same Google account you use for Search Console.</li>
+              <li>Open Google Search Console in Chrome and check that the property is visible there.</li>
+              <li>If the property is missing, ask the property owner to add this Google account.</li>
+              <li>Return to the extension and click Connect again.</li>
+            </ol>
+          </details>
+
+          <details id="help-matching-property" class="help-question">
+            <summary>What should I do when no matching property is found?</summary>
+            <ol class="help-steps">
+              <li>Check the current page URL shown in the Search Console tab.</li>
+              <li>Select the Search Console property that contains that exact URL.</li>
+              <li>Use a domain property or the matching URL-prefix property for this site.</li>
+              <li>If the property is not listed, verify the site in Search Console for the signed-in Google account.</li>
+            </ol>
+          </details>
+
+          <details id="help-rate-limit" class="help-question">
+            <summary>What should I do when Search Console rate limits requests?</summary>
+            <ol class="help-steps">
+              <li>Wait a few minutes before trying again.</li>
+              <li>Avoid repeatedly clicking Refresh GSC while the error is visible.</li>
+              <li>Click Refresh GSC after the wait.</li>
+            </ol>
+          </details>
         </section>
       </section>
     </main>

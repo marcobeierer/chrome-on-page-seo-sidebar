@@ -144,6 +144,7 @@ select {
 .source,
 .page-data,
 .gsc-card,
+.help-card,
 .summary-card,
 .filters,
 .tabs,
@@ -156,6 +157,12 @@ select {
 .status {
   color: var(--muted);
   padding: 10px 12px;
+}
+
+.status a,
+.empty a {
+  color: inherit;
+  font-weight: 800;
 }
 
 .status.error {
@@ -174,7 +181,7 @@ select {
 .top-tabs {
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 5px;
 }
 
@@ -389,6 +396,54 @@ select {
   max-width: 100%;
   min-width: 0;
   padding: 12px;
+}
+
+.help-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.help-card h2 {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  margin: 2px 0 0;
+}
+
+.help-intro,
+.help-note {
+  color: var(--muted);
+  margin: 0;
+}
+
+.help-question {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.help-question:target {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.help-question summary {
+  color: var(--text);
+}
+
+.help-question[open] summary {
+  margin-bottom: 8px;
+}
+
+.help-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.help-steps li {
+  padding-left: 3px;
 }
 
 .gsc-header {
