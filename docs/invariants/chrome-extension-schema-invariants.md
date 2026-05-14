@@ -14,13 +14,13 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Verified by: Build/package checks, manual Chrome extension load, and text search before release.
 - Edge cases: Historical planning docs may mention earlier working names, but user-facing release surfaces should not.
 
-### Local-Only Analysis
+### Local-Only On-Page Analysis
 
-- Rule: Page content, structured data, URLs, findings, and analysis results must not be transmitted to external services.
-- Why: The extension must be safe for authenticated staging pages and support the Chrome Web Store privacy claim of no data collection.
-- Enforced in: Extension architecture, network usage, dependency choices, and store disclosures.
+- Rule: Page content, structured data, findings, and on-page analysis results must not be transmitted to external services by the local on-page analysis feature.
+- Why: The extension must remain safe for authenticated staging pages and preserve the original local QA guarantee for structured-data analysis.
+- Enforced in: Extension architecture, network usage, dependency choices, and store disclosures for the on-page analysis path.
 - Verified by: Code review, package inspection, E2E monitoring for network requests, and privacy disclosure review.
-- Edge cases: Loading bundled extension assets is allowed; remote rule fetching, telemetry, AI analysis, and analytics are not allowed in the first release.
+- Edge cases: Loading bundled extension assets is allowed. The optional GSC tab may make explicit authenticated Google Search Console API requests after user sign-in, including sending the selected page URL as a Search Analytics page filter; that behavior is governed by `docs/invariants/google-search-console-invariants.md`.
 
 ### Session-Only Results
 
@@ -28,7 +28,7 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Why: Users chose no history, bookmarks, exports, or persisted page audits for the first release.
 - Enforced in: UI state management and storage API usage.
 - Verified by: Tests or manual QA confirming results disappear after panel/page session closure and no page analysis is written to extension storage.
-- Edge cases: Persisting non-sensitive UI preferences is out of scope unless explicitly approved later.
+- Edge cases: Persisting non-sensitive UI preferences is allowed only when explicitly approved for a feature. GSC property and filter preferences are governed by `docs/invariants/google-search-console-invariants.md`; GSC report rows must not be persisted.
 
 ### Current DOM Is Primary
 
@@ -126,13 +126,13 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Verified by: E2E package tests checking the note text and manual UI review.
 - Edge cases: The note can be removed only after the validation catalog and findings behavior have been manually verified against representative real-world pages.
 
-### Sidebar Permissions Are Explicit
+### On-Page Sidebar Permissions Are Explicit
 
-- Rule: The extension must request only the side panel permissions required for automatic active-page analysis: `sidePanel`, `scripting`, `tabs`, and `<all_urls>` host access.
+- Rule: The on-page analysis feature must request only the side panel permissions required for automatic active-page analysis: `sidePanel`, `scripting`, `tabs`, and page host access.
 - Why: A browser sidebar must analyze the active tab from normal browsing contexts and stay current across public sites, staging sites, SPAs, and localhost.
 - Enforced in: `public/manifest.json`, architecture decisions, tests, store-prep docs, and Chrome Web Store permission justifications.
 - Verified by: E2E package tests, manual manifest review, and Chrome Web Store submission checks.
-- Edge cases: More permissions, remote code, telemetry, or original HTML network capture require an explicit later decision.
+- Edge cases: The optional GSC integration requires additional `identity`, `storage`, OAuth scope, and Google API host permissions governed by `docs/invariants/google-search-console-invariants.md`. Remote code, telemetry, or original HTML network capture still require an explicit later decision.
 
 ## Cross-References
 

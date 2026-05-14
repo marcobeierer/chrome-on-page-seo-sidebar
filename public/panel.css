@@ -35,6 +35,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -139,9 +143,11 @@ select {
 .node,
 .source,
 .page-data,
+.gsc-card,
 .summary-card,
 .filters,
-.tabs {
+.tabs,
+.top-tabs {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -161,6 +167,45 @@ select {
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 100%;
+  min-width: 0;
+}
+
+.top-tabs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 5px;
+}
+
+.top-tab {
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 12px;
+}
+
+.top-tab.active {
+  background: var(--blue);
+  color: #fff;
+}
+
+.top-tab:focus-visible,
+.top-tab:hover {
+  outline: 2px solid color-mix(in srgb, var(--blue) 50%, transparent);
+  outline-offset: 1px;
+}
+
+.top-panel {
+  display: none;
+}
+
+.top-panel.active {
+  display: grid;
+  gap: 14px;
   max-width: 100%;
   min-width: 0;
 }
@@ -331,9 +376,246 @@ select {
 }
 
 .filters option,
-.view-toolbar option {
+.view-toolbar option,
+.gsc-property-control option,
+.gsc-controls option {
   background: var(--panel);
   color: var(--text);
+}
+
+.gsc-card {
+  display: grid;
+  gap: 14px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px;
+}
+
+.gsc-header {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.gsc-header h2 {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  margin: 2px 0 0;
+}
+
+.gsc-target,
+.gsc-report-meta {
+  color: var(--muted);
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.gsc-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+}
+
+.gsc-actions button,
+.secondary-button {
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+#gsc-connect {
+  background: var(--blue);
+  border: 0;
+  color: #fff;
+}
+
+.secondary-button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.gsc-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.gsc-property-control,
+.gsc-filter-details,
+.gsc-query-filter {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.gsc-property-control label,
+.gsc-query-filter label,
+.gsc-controls label {
+  color: var(--muted);
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gsc-property-control select,
+.gsc-query-filter input,
+.gsc-controls input,
+.gsc-controls select {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.gsc-quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gsc-quick-ranges button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 7px 11px;
+}
+
+.gsc-quick-ranges button.active,
+.gsc-quick-ranges button:hover,
+.gsc-quick-ranges button:focus-visible {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+  color: var(--blue);
+  outline: none;
+}
+
+.gsc-filter-details {
+  display: grid;
+  gap: 10px;
+}
+
+.gsc-filter-details summary {
+  color: var(--text);
+}
+
+.gsc-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 100%;
+  min-width: 0;
+}
+
+.gsc-results {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gsc-table {
+  border-collapse: collapse;
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.gsc-table-heading {
+  font-size: 14px;
+  margin: 2px 0 -4px;
+}
+
+.gsc-totals {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gsc-totals div {
+  align-items: baseline;
+  background: var(--blue-soft);
+  border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 4px;
+  justify-content: center;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.gsc-totals strong {
+  color: var(--blue);
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.gsc-totals span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.gsc-table thead,
+.gsc-table tbody,
+.gsc-table tr {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.gsc-table th,
+.gsc-table td {
+  border-top: 1px solid var(--line);
+  padding: 9px 8px;
+  text-align: right;
+  vertical-align: top;
+}
+
+.gsc-table th {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gsc-sort-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: inherit;
+  padding: 0;
+  text-align: inherit;
+  text-transform: inherit;
+  width: 100%;
+}
+
+.gsc-sort-button:hover,
+.gsc-sort-button:focus-visible {
+  color: var(--blue);
+  outline: none;
+}
+
+.gsc-table th:first-child,
+.gsc-table td:first-child {
+  text-align: left;
+  width: 46%;
+}
+
+.gsc-table .query {
+  overflow-wrap: anywhere;
 }
 
 .view-toolbar {
@@ -772,7 +1054,9 @@ pre code {
 
 @media (max-width: 760px) {
   .toolbar,
-  .filters {
+  .filters,
+  .gsc-header,
+  .gsc-controls {
     grid-template-columns: 1fr;
   }
 

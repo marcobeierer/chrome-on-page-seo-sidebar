@@ -1,17 +1,44 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
 import type { AnalysisResult, ExtractedPageData, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
+import { DEFAULT_GSC_FILTERS, gscTargetUrl, normalizeFilters, selectBestGscProperty, sitePreferenceKey } from "./gsc/helpers";
+import type { GscApiError, GscPreferences, GscProperty, GscReportResponse, GscRuntimeRequest, GscRuntimeResponse } from "./gsc/types";
 import { inspectedPageAnalysis } from "./inspectedPage";
 import { copyControl, tooltipControl } from "./panel/copyControls";
 import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./panel/treeModel";
 import { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 
 let currentResult: AnalysisResult | null = null;
+let activeTopTab: "gsc" | "on-page" = "on-page";
 let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
 let pageDataOpen = true;
 let lastObservedUrl: string | null = null;
 let lastActiveTabId: number | null = null;
 let pendingRefresh: number | undefined;
+let gscState: GscPanelState = initialGscState();
+let gscFiltersOpen = false;
+let gscQueryFilter = "";
+let gscSort: GscSortState = { key: "clicks", direction: "desc" };
+let gscRequestVersion = 0;
+let gscAutoLoadPending = false;
+
+type GscSortKey = "clicks" | "ctr" | "impressions" | "position" | "query";
+
+interface GscSortState {
+  key: GscSortKey;
+  direction: "asc" | "desc";
+}
+
+interface GscPanelState {
+  loading: boolean;
+  connected: boolean;
+  properties: GscProperty[];
+  preferences: GscPreferences;
+  selectedProperty?: GscProperty | undefined;
+  targetUrl?: string | undefined;
+  report?: GscReportResponse | undefined;
+  error?: GscApiError | undefined;
+}
 
 const refreshButton = requireElement<HTMLButtonElement>("refresh");
 const shortcutSettingsButton = requireElement<HTMLButtonElement>("shortcut-settings");
@@ -19,6 +46,17 @@ const statusElement = requireElement<HTMLElement>("status");
 const searchInput = requireElement<HTMLInputElement>("search");
 const severitySelect = requireElement<HTMLSelectElement>("severity");
 const formatSelect = requireElement<HTMLSelectElement>("format");
+const gscConnectButton = requireElement<HTMLButtonElement>("gsc-connect");
+const gscDisconnectButton = requireElement<HTMLButtonElement>("gsc-disconnect");
+const gscRefreshButton = requireElement<HTMLButtonElement>("gsc-refresh");
+const gscPropertySelect = requireElement<HTMLSelectElement>("gsc-property");
+const gscFilterDetails = requireElement<HTMLDetailsElement>("gsc-filter-details");
+const gscQueryFilterInput = requireElement<HTMLInputElement>("gsc-query-filter");
+const gscStartDateInput = requireElement<HTMLInputElement>("gsc-start-date");
+const gscEndDateInput = requireElement<HTMLInputElement>("gsc-end-date");
+const gscSearchTypeSelect = requireElement<HTMLSelectElement>("gsc-search-type");
+const gscCountryInput = requireElement<HTMLInputElement>("gsc-country");
+const gscDeviceSelect = requireElement<HTMLSelectElement>("gsc-device");
 
 refreshButton.addEventListener("click", () => {
   if (pendingRefresh !== undefined) {
@@ -35,6 +73,47 @@ tooltipControl(shortcutSettingsButton, "Shortcut", "Configure activation shortcu
 searchInput.addEventListener("input", render);
 severitySelect.addEventListener("change", render);
 formatSelect.addEventListener("change", render);
+gscConnectButton.addEventListener("click", () => {
+  void connectGsc();
+});
+gscDisconnectButton.addEventListener("click", () => {
+  void disconnectGsc();
+});
+gscRefreshButton.addEventListener("click", () => {
+  void loadGscReport(true);
+});
+gscPropertySelect.addEventListener("change", () => {
+  void selectGscProperty(gscPropertySelect.value);
+});
+gscFilterDetails.addEventListener("toggle", () => {
+  gscFiltersOpen = gscFilterDetails.open;
+});
+gscQueryFilterInput.addEventListener("input", () => {
+  gscQueryFilter = gscQueryFilterInput.value;
+  renderGsc();
+});
+for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-gsc-range]"))) {
+  button.addEventListener("click", () => {
+    const days = Number(button.dataset["gscRange"]);
+    if (Number.isFinite(days)) {
+      void applyGscQuickRange(days);
+    }
+  });
+}
+for (const control of [gscStartDateInput, gscEndDateInput, gscSearchTypeSelect, gscCountryInput, gscDeviceSelect]) {
+  control.addEventListener("change", () => {
+    void updateGscFiltersFromControls();
+  });
+}
+
+for (const tab of Array.from(document.querySelectorAll<HTMLButtonElement>(".top-tab"))) {
+  tab.addEventListener("click", () => {
+    activateTopTab(tab.dataset["topTab"] === "gsc" ? "gsc" : "on-page");
+  });
+  tab.addEventListener("keydown", (event) => {
+    handleTopTabKeydown(event);
+  });
+}
 
 for (const tab of Array.from(document.querySelectorAll<HTMLButtonElement>(".tab"))) {
   tab.addEventListener("click", () => {
@@ -80,6 +159,7 @@ window.setInterval(() => {
 
 setStatus("Opening panel. Analyzing current DOM...");
 scheduleAnalysis("Analyzing current DOM...", 0);
+renderGsc();
 
 async function refreshAnalysis(canRequestAccess = false): Promise<void> {
   if (isAnalyzing) {
@@ -96,9 +176,14 @@ async function refreshAnalysis(canRequestAccess = false): Promise<void> {
     currentResult = analyzeExtractedData(extracted);
     lastObservedUrl = currentResult.url;
     setStatus(`Analyzed ${currentResult.title || currentResult.url} at ${formatTime(currentResult.analyzedAt)}.`);
+    syncGscTargetWithCurrentPage();
     render();
+    if (activeTopTab === "gsc" && gscState.connected) {
+      void loadGscReport(false);
+    }
   } catch (error) {
     currentResult = null;
+    syncGscTargetWithCurrentPage();
     setStatus(error instanceof Error ? error.message : String(error), true);
     render();
   } finally {
@@ -233,6 +318,37 @@ function render(): void {
   if (activeView === "findings") renderFindings();
   if (activeView === "tree") renderTree();
   if (activeView === "source") renderSources();
+  renderGsc();
+}
+
+function activateTopTab(tab: typeof activeTopTab): void {
+  activeTopTab = tab;
+  for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>(".top-tab"))) {
+    const active = button.dataset["topTab"] === tab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  }
+  for (const panel of Array.from(document.querySelectorAll<HTMLElement>(".top-panel"))) {
+    const active = panel.id === `${tab}-panel`;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
+  }
+  if (tab === "gsc" && !gscState.connected && !gscState.loading) {
+    void initializeGsc(false);
+  }
+  if (tab === "gsc" && gscState.connected && gscState.report === undefined && !gscState.loading) {
+    void loadGscReport(false);
+  }
+}
+
+function handleTopTabKeydown(event: KeyboardEvent): void {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+    return;
+  }
+  event.preventDefault();
+  const nextTab: typeof activeTopTab = activeTopTab === "on-page" ? "gsc" : "on-page";
+  activateTopTab(nextTab);
+  document.querySelector<HTMLButtonElement>(`.top-tab[data-top-tab="${nextTab}"]`)?.focus();
 }
 
 function activateView(view: typeof activeView): void {
@@ -404,6 +520,461 @@ function renderSources(): void {
   }
   const sources = result.sources.filter((source) => matchesFormat(source.format) && matchesQuery(sourceSearchText(source)));
   view.replaceChildren(...sources.map(sourceDetails));
+}
+
+function initialGscState(): GscPanelState {
+  return {
+    loading: false,
+    connected: false,
+    properties: [],
+    preferences: { selectedProperties: {}, filters: { ...DEFAULT_GSC_FILTERS } },
+  };
+}
+
+function syncGscTargetWithCurrentPage(): void {
+  const targetUrl = gscTargetUrl(currentResult?.url, currentResult?.page.canonical?.href);
+  if (gscState.targetUrl === targetUrl) {
+    return;
+  }
+  gscRequestVersion += 1;
+  gscQueryFilter = "";
+  gscState = { ...gscState, loading: false, targetUrl, report: undefined, error: undefined };
+  selectBestKnownGscProperty();
+  if (activeTopTab === "gsc" && gscState.connected && gscState.selectedProperty !== undefined && targetUrl !== undefined) {
+    gscAutoLoadPending = true;
+  }
+}
+
+async function initializeGsc(interactive: boolean): Promise<void> {
+  syncGscTargetWithCurrentPage();
+  gscState = { ...gscState, loading: true, error: undefined };
+  renderGsc();
+  try {
+    const [preferences, properties] = await Promise.all([sendGscMessage<GscPreferences>({ type: "gsc:getPreferences" }), sendGscMessage<GscProperty[]>({ type: interactive ? "gsc:connect" : "gsc:listProperties" })]);
+    gscState = { ...gscState, loading: false, connected: true, preferences, properties, error: undefined };
+    selectBestKnownGscProperty();
+    await persistCurrentGscSelection();
+    renderGsc();
+    if (gscState.selectedProperty !== undefined && gscState.targetUrl !== undefined) {
+      void loadGscReport(false);
+    }
+  } catch (error) {
+    gscState = { ...gscState, loading: false, connected: false, properties: [], report: undefined, error: normalizePanelGscError(error) };
+    renderGsc();
+  }
+}
+
+async function connectGsc(): Promise<void> {
+  await initializeGsc(true);
+  if (gscState.connected) {
+    await loadGscReport(false);
+  }
+}
+
+async function disconnectGsc(): Promise<void> {
+  gscState = { ...gscState, loading: true, error: undefined };
+  renderGsc();
+  try {
+    await sendGscMessage({ type: "gsc:disconnect" });
+  } finally {
+    gscState = { ...initialGscState(), targetUrl: gscState.targetUrl };
+    renderGsc();
+  }
+}
+
+async function loadGscReport(forceRefresh: boolean): Promise<void> {
+  syncGscTargetWithCurrentPage();
+  if (!gscState.connected) {
+    await initializeGsc(false);
+  }
+  const targetUrl = gscState.targetUrl;
+  const property = gscState.selectedProperty;
+  if (!gscState.connected || targetUrl === undefined || property === undefined) {
+    renderGsc();
+    return;
+  }
+  gscAutoLoadPending = false;
+  await persistCurrentGscSelection();
+
+  const requestVersion = (gscRequestVersion += 1);
+  const filters = { ...gscState.preferences.filters };
+  gscState = { ...gscState, loading: true, error: undefined };
+  renderGsc();
+  try {
+    const report = await sendGscMessage<GscReportResponse>({ type: "gsc:query", property, targetUrl, filters, forceRefresh });
+    if (!isCurrentGscRequest(requestVersion, targetUrl, property, filters)) {
+      return;
+    }
+    gscState = { ...gscState, loading: false, report, error: undefined };
+  } catch (error) {
+    if (!isCurrentGscRequest(requestVersion, targetUrl, property, filters)) {
+      return;
+    }
+    gscState = { ...gscState, loading: false, report: undefined, error: normalizePanelGscError(error) };
+  }
+  renderGsc();
+  if (gscAutoLoadPending && activeTopTab === "gsc" && gscState.connected && gscState.selectedProperty !== undefined && gscState.targetUrl !== undefined && !gscState.loading) {
+    void loadGscReport(false);
+  }
+}
+
+function isCurrentGscRequest(requestVersion: number, targetUrl: string, property: GscProperty, filters: GscReportResponse["filters"]): boolean {
+  return (
+    requestVersion === gscRequestVersion &&
+    gscState.targetUrl === targetUrl &&
+    gscState.selectedProperty?.siteUrl === property.siteUrl &&
+    sameGscFilters(gscState.preferences.filters, filters)
+  );
+}
+
+function sameGscFilters(a: GscReportResponse["filters"], b: GscReportResponse["filters"]): boolean {
+  return a.startDate === b.startDate && a.endDate === b.endDate && a.searchType === b.searchType && a.country === b.country && a.device === b.device;
+}
+
+async function selectGscProperty(siteUrl: string): Promise<void> {
+  const selectedProperty = gscState.properties.find((property) => property.siteUrl === siteUrl);
+  if (selectedProperty === undefined) {
+    return;
+  }
+  const targetUrl = gscState.targetUrl;
+  const selectedProperties = { ...gscState.preferences.selectedProperties };
+  if (targetUrl !== undefined) {
+    selectedProperties[sitePreferenceKey(targetUrl)] = selectedProperty.siteUrl;
+  }
+  const preferences = { ...gscState.preferences, selectedProperties };
+  gscState = { ...gscState, preferences, selectedProperty, report: undefined };
+  await saveGscPreferences(preferences);
+  await loadGscReport(false);
+}
+
+async function updateGscFiltersFromControls(): Promise<void> {
+  const filters = normalizeFilters({
+    startDate: gscStartDateInput.value,
+    endDate: gscEndDateInput.value,
+    searchType: gscSearchTypeSelect.value,
+    country: gscCountryInput.value,
+    device: gscDeviceSelect.value,
+  });
+  const preferences = { ...gscState.preferences, filters };
+  gscState = { ...gscState, preferences, report: undefined };
+  await saveGscPreferences(preferences);
+  await loadGscReport(false);
+}
+
+async function applyGscQuickRange(days: number): Promise<void> {
+  const range = gscDateRange(days);
+  const preferences = {
+    ...gscState.preferences,
+    filters: { ...gscState.preferences.filters, ...range },
+  };
+  gscState = { ...gscState, preferences, report: undefined };
+  await saveGscPreferences(preferences);
+  await loadGscReport(false);
+}
+
+async function saveGscPreferences(preferences: GscPreferences): Promise<void> {
+  try {
+    await sendGscMessage({ type: "gsc:savePreferences", preferences });
+  } catch (error) {
+    gscState = { ...gscState, error: normalizePanelGscError(error) };
+    renderGsc();
+  }
+}
+
+async function persistCurrentGscSelection(): Promise<void> {
+  const targetUrl = gscState.targetUrl;
+  const selectedProperty = gscState.selectedProperty;
+  if (targetUrl === undefined || selectedProperty === undefined) {
+    return;
+  }
+  const key = sitePreferenceKey(targetUrl);
+  if (gscState.preferences.selectedProperties[key] === selectedProperty.siteUrl) {
+    return;
+  }
+  const preferences = {
+    ...gscState.preferences,
+    selectedProperties: { ...gscState.preferences.selectedProperties, [key]: selectedProperty.siteUrl },
+  };
+  gscState = { ...gscState, preferences };
+  await saveGscPreferences(preferences);
+}
+
+function selectBestKnownGscProperty(): void {
+  const targetUrl = gscState.targetUrl;
+  if (targetUrl === undefined) {
+    gscState = { ...gscState, selectedProperty: undefined };
+    return;
+  }
+  const preferred = gscState.preferences.selectedProperties[sitePreferenceKey(targetUrl)];
+  const selectedProperty = selectBestGscProperty(gscState.properties, targetUrl, preferred);
+  gscState = { ...gscState, selectedProperty };
+}
+
+function renderGsc(): void {
+  const status = requireElement<HTMLElement>("gsc-status");
+  const target = requireElement<HTMLElement>("gsc-target-url");
+  const propertyControl = document.querySelector<HTMLElement>(".gsc-property-control");
+  const quickRanges = requireElement<HTMLElement>("gsc-quick-ranges");
+  const queryFilterPanel = requireElement<HTMLElement>("gsc-query-filter-panel");
+  const results = requireElement<HTMLElement>("gsc-results");
+
+  target.textContent = gscState.targetUrl === undefined ? "Analyze a page to choose a Search Console target URL." : `Target URL: ${gscState.targetUrl}`;
+  status.classList.toggle("error", gscState.error !== undefined);
+  status.textContent = gscStatusText();
+  gscConnectButton.hidden = gscState.connected;
+  gscDisconnectButton.hidden = !gscState.connected;
+  gscRefreshButton.hidden = !gscState.connected || gscState.selectedProperty === undefined || gscState.targetUrl === undefined;
+  gscConnectButton.disabled = gscState.loading;
+  gscDisconnectButton.disabled = gscState.loading;
+  gscRefreshButton.disabled = gscState.loading;
+
+  if (propertyControl !== null) {
+    propertyControl.hidden = !gscState.connected;
+  }
+  quickRanges.hidden = !gscState.connected;
+  gscFilterDetails.hidden = !gscState.connected;
+  gscFilterDetails.open = gscFiltersOpen;
+  queryFilterPanel.hidden = gscState.report === undefined;
+  renderGscControls();
+
+  if (gscState.targetUrl === undefined) {
+    results.replaceChildren(emptyState("No page target", "Analyze a normal HTTP or HTTPS page before loading Search Console data."));
+    return;
+  }
+  if (!gscState.connected) {
+    results.replaceChildren(emptyState("Connect Search Console", "Use a Google account with Search Console access to see this page's ranking queries."));
+    return;
+  }
+  if (gscState.loading) {
+    results.replaceChildren(emptyState("Loading GSC data", "Fetching properties and page query rows from Google Search Console..."));
+    return;
+  }
+  if (gscState.properties.length === 0) {
+    results.replaceChildren(emptyState("No accessible properties", "This Google account does not expose matching Search Console properties to the extension."));
+    return;
+  }
+  if (gscState.selectedProperty === undefined) {
+    results.replaceChildren(emptyState("No matching property", "Select a Search Console property that contains the target URL."));
+    return;
+  }
+  if (gscState.error !== undefined) {
+    results.replaceChildren(emptyState("GSC request failed", gscState.error.message));
+    return;
+  }
+  if (gscState.report === undefined) {
+    results.replaceChildren(emptyState("No GSC report loaded", "Refresh GSC to load top queries for this page."));
+    return;
+  }
+  const rows = visibleGscRows(gscState.report);
+  if (gscState.report.rows.length === 0) {
+    results.replaceChildren(emptyState("No query data", "Search Console returned no query rows for this page and filter set."), gscReportMeta(gscState.report));
+    return;
+  }
+  if (rows.length === 0) {
+    results.replaceChildren(emptyState("No matching queries", "Adjust the query filter to show Search Console rows."), gscReportMeta(gscState.report));
+    return;
+  }
+  results.replaceChildren(gscReportMeta(gscState.report, rows.length), gscTotals(gscState.report, rows), gscTableHeading(), gscTable(rows));
+}
+
+function renderGscControls(): void {
+  const propertyOptions = gscState.properties.map((property) => optionElement(property.siteUrl, property.displayName));
+  if (gscState.selectedProperty === undefined) {
+    const placeholder = optionElement("", "Select matching property");
+    placeholder.disabled = true;
+    propertyOptions.unshift(placeholder);
+  }
+  gscPropertySelect.replaceChildren(...propertyOptions);
+  if (gscState.selectedProperty !== undefined) {
+    gscPropertySelect.value = gscState.selectedProperty.siteUrl;
+  } else {
+    gscPropertySelect.value = "";
+  }
+  const filters = gscState.preferences.filters;
+  gscQueryFilterInput.value = gscQueryFilter;
+  gscStartDateInput.value = filters.startDate;
+  gscEndDateInput.value = filters.endDate;
+  gscSearchTypeSelect.value = filters.searchType;
+  gscCountryInput.value = filters.country;
+  gscDeviceSelect.value = filters.device;
+  renderGscQuickRangeButtons(filters.startDate, filters.endDate);
+}
+
+function renderGscQuickRangeButtons(startDate: string, endDate: string): void {
+  for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>("[data-gsc-range]"))) {
+    const days = Number(button.dataset["gscRange"]);
+    const range = gscDateRange(days);
+    button.classList.toggle("active", range.startDate === startDate && range.endDate === endDate);
+  }
+}
+
+function gscStatusText(): string {
+  if (gscState.error !== undefined) {
+    return gscState.error.message;
+  }
+  if (gscState.loading) {
+    return "Loading Google Search Console data...";
+  }
+  if (!gscState.connected) {
+    return "Connect Google Search Console to view query data for the current page.";
+  }
+  if (gscState.report?.cacheHit === true) {
+    return "Showing cached Search Console data from the last 15 minutes.";
+  }
+  return "Google Search Console is connected.";
+}
+
+function optionElement(value: string, label: string): HTMLOptionElement {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+function gscReportMeta(report: GscReportResponse, visibleRows = report.rows.length): HTMLElement {
+  const meta = document.createElement("p");
+  meta.className = "gsc-report-meta";
+  const fetched = formatTime(report.fetchedAt);
+  const rowText = visibleRows === report.rows.length ? `${report.rows.length} rows` : `${visibleRows} of ${report.rows.length} rows`;
+  meta.textContent = `${report.property.displayName} / ${report.filters.startDate} to ${report.filters.endDate} / ${report.filters.searchType} / ${rowText} / ${report.cacheHit ? "cached" : `fetched ${fetched}`}`;
+  return meta;
+}
+
+function gscTable(rows: GscReportResponse["rows"]): HTMLElement {
+  const table = document.createElement("table");
+  table.className = "gsc-table";
+  const thead = document.createElement("thead");
+  const header = document.createElement("tr");
+  header.replaceChildren(
+    gscSortHeader("query", "Query"),
+    gscSortHeader("clicks", "Clicks"),
+    gscSortHeader("impressions", "Impressions"),
+    gscSortHeader("ctr", "CTR"),
+    gscSortHeader("position", "Position"),
+  );
+  thead.append(header);
+
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.append(gscCell(row.query, "query"), gscCell(String(row.clicks)), gscCell(String(row.impressions)), gscCell(formatPercent(row.ctr)), gscCell(row.position.toFixed(1)));
+    tbody.append(tr);
+  }
+  table.replaceChildren(thead, tbody);
+  return table;
+}
+
+function gscTableHeading(): HTMLElement {
+  const heading = document.createElement("h3");
+  heading.className = "gsc-table-heading";
+  heading.textContent = "Top 50 queries by clicks";
+  return heading;
+}
+
+function gscTotals(report: GscReportResponse, rows: GscReportResponse["rows"]): HTMLElement {
+  const grid = document.createElement("section");
+  grid.className = "gsc-totals";
+  grid.setAttribute("aria-label", "Search Console totals");
+  grid.replaceChildren(
+    gscTotalCard(String(rows.length), gscQueryFilter.trim() === "" ? "Shown queries" : "Matching queries"),
+    gscTotalCard(numberFormat(report.summary.clicks), "Total clicks"),
+    gscTotalCard(numberFormat(report.summary.impressions), "Total impressions"),
+  );
+  return grid;
+}
+
+function gscTotalCard(value: string, label: string): HTMLElement {
+  const card = document.createElement("div");
+  const valueElement = document.createElement("strong");
+  valueElement.textContent = value;
+  const labelElement = document.createElement("span");
+  labelElement.textContent = label;
+  card.replaceChildren(valueElement, labelElement);
+  return card;
+}
+
+function gscSortHeader(key: GscSortKey, label: string): HTMLTableCellElement {
+  const th = document.createElement("th");
+  const button = document.createElement("button");
+  button.className = "gsc-sort-button";
+  button.type = "button";
+  const active = gscSort.key === key;
+  button.textContent = active ? `${label} ${gscSort.direction === "asc" ? "▲" : "▼"}` : label;
+  button.setAttribute("aria-sort", active ? (gscSort.direction === "asc" ? "ascending" : "descending") : "none");
+  button.addEventListener("click", () => {
+    sortGscRows(key);
+  });
+  th.append(button);
+  return th;
+}
+
+function sortGscRows(key: GscSortKey): void {
+  gscSort = gscSort.key === key ? { key, direction: gscSort.direction === "asc" ? "desc" : "asc" } : { key, direction: defaultGscSortDirection(key) };
+  renderGsc();
+}
+
+function defaultGscSortDirection(key: GscSortKey): GscSortState["direction"] {
+  return key === "query" || key === "position" ? "asc" : "desc";
+}
+
+function visibleGscRows(report: GscReportResponse): GscReportResponse["rows"] {
+  const query = gscQueryFilter.trim().toLowerCase();
+  const rows = query === "" ? [...report.rows] : report.rows.filter((row) => row.query.toLowerCase().includes(query));
+  rows.sort((a, b) => compareGscRows(a, b));
+  return rows;
+}
+
+function compareGscRows(a: GscReportResponse["rows"][number], b: GscReportResponse["rows"][number]): number {
+  const direction = gscSort.direction === "asc" ? 1 : -1;
+  if (gscSort.key === "query") {
+    return a.query.localeCompare(b.query) * direction;
+  }
+  return (a[gscSort.key] - b[gscSort.key]) * direction || a.query.localeCompare(b.query);
+}
+
+function gscCell(value: string, className?: string): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  if (className !== undefined) {
+    cell.className = className;
+  }
+  cell.textContent = value;
+  return cell;
+}
+
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, style: "percent" }).format(value);
+}
+
+function numberFormat(value: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+}
+
+function gscDateRange(days: number): Pick<GscReportResponse["filters"], "endDate" | "startDate"> {
+  return { startDate: daysAgoDate(days), endDate: daysAgoDate(1) };
+}
+
+function daysAgoDate(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+async function sendGscMessage<T>(message: GscRuntimeRequest): Promise<T> {
+  const response = (await chrome.runtime.sendMessage(message)) as GscRuntimeResponse<T>;
+  if (!response.ok) {
+    throw response.error;
+  }
+  return response.value;
+}
+
+function normalizePanelGscError(error: unknown): GscApiError {
+  if (typeof error === "object" && error !== null && typeof (error as GscApiError).code === "string" && typeof (error as GscApiError).message === "string") {
+    return error as GscApiError;
+  }
+  if (error instanceof Error) {
+    return { code: "error", message: error.message };
+  }
+  return { code: "error", message: String(error) };
 }
 
 function findingCard(finding: Finding, result: AnalysisResult): HTMLElement {
