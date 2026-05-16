@@ -181,7 +181,7 @@ select {
 .top-tabs {
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 5px;
 }
 
@@ -192,6 +192,7 @@ select {
   color: var(--muted);
   cursor: pointer;
   font-weight: 900;
+  line-height: 1.2;
   padding: 10px 12px;
 }
 

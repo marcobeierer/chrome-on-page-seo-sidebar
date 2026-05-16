@@ -26,7 +26,8 @@ test("side panel shell exposes required first-release views", async () => {
   const panelHtml = await readFile(join(dist, "panel.html"), "utf8");
   assert.match(panelHtml, /id="refresh"/);
   assert.match(panelHtml, /id="shortcut-settings"/);
-  assert.match(panelHtml, /id="on-page-panel"/);
+  assert.match(panelHtml, /id="page-panel"/);
+  assert.match(panelHtml, /id="schema-panel"/);
   assert.match(panelHtml, /id="gsc-panel"/);
   assert.match(panelHtml, /Search Console \(GSC\)/);
   assert.match(panelHtml, /id="gsc-connect"/);

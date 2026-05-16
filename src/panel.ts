@@ -8,12 +8,12 @@ import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./pan
 import { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 
 let currentResult: AnalysisResult | null = null;
-type TopTab = "gsc" | "help" | "on-page";
+type TopTab = "gsc" | "help" | "page" | "schema";
 type HelpTopic = "help-chrome-signin" | "help-connect-gsc" | "help-matching-property" | "help-property-access" | "help-rate-limit";
 
-const TOP_TABS: TopTab[] = ["on-page", "gsc", "help"];
+const TOP_TABS: TopTab[] = ["page", "schema", "gsc", "help"];
 
-let activeTopTab: TopTab = "on-page";
+let activeTopTab: TopTab = "page";
 let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
 let pageDataOpen = true;
@@ -47,7 +47,6 @@ interface GscPanelState {
 
 const refreshButton = requireElement<HTMLButtonElement>("refresh");
 const shortcutSettingsButton = requireElement<HTMLButtonElement>("shortcut-settings");
-const statusElement = requireElement<HTMLElement>("status");
 const searchInput = requireElement<HTMLInputElement>("search");
 const severitySelect = requireElement<HTMLSelectElement>("severity");
 const formatSelect = requireElement<HTMLSelectElement>("format");
@@ -327,7 +326,7 @@ function render(): void {
 }
 
 function topTabFromDataset(value: string | undefined): TopTab {
-  return value === "gsc" || value === "help" ? value : "on-page";
+  return value === "schema" || value === "gsc" || value === "help" ? value : "page";
 }
 
 function activateTopTab(tab: TopTab): void {
@@ -357,7 +356,7 @@ function handleTopTabKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   const currentIndex = Math.max(TOP_TABS.indexOf(activeTopTab), 0);
   const direction = event.key === "ArrowRight" ? 1 : -1;
-  const nextTab = TOP_TABS[(currentIndex + direction + TOP_TABS.length) % TOP_TABS.length] ?? "on-page";
+  const nextTab = TOP_TABS[(currentIndex + direction + TOP_TABS.length) % TOP_TABS.length] ?? "page";
   activateTopTab(nextTab);
   document.querySelector<HTMLButtonElement>(`.top-tab[data-top-tab="${nextTab}"]`)?.focus();
 }
@@ -1250,8 +1249,10 @@ function emptyState(title: string, body: string, action?: HTMLElement): HTMLElem
 }
 
 function setStatus(message: string, isError = false): void {
-  statusElement.textContent = message;
-  statusElement.classList.toggle("error", isError);
+  for (const status of Array.from(document.querySelectorAll<HTMLElement>(".analysis-status"))) {
+    status.textContent = message;
+    status.classList.toggle("error", isError);
+  }
 }
 
 function setText(id: string, value: string): void {

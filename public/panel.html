@@ -11,7 +11,7 @@
       <header class="toolbar">
         <div>
           <p class="eyebrow">On-Page SEO Sidebar</p>
-          <h1>Structured data</h1>
+          <h1>On-page SEO</h1>
         </div>
         <div class="toolbar-actions">
           <button id="refresh" type="button">Refresh analysis</button>
@@ -25,15 +25,19 @@
       </header>
 
       <nav class="top-tabs" role="tablist" aria-label="Sidebar sections">
-        <button id="on-page-top-tab" class="top-tab active" type="button" role="tab" aria-selected="true" aria-controls="on-page-panel" data-top-tab="on-page">On-page</button>
+        <button id="page-top-tab" class="top-tab active" type="button" role="tab" aria-selected="true" aria-controls="page-panel" data-top-tab="page">Page data</button>
+        <button id="schema-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="schema-panel" data-top-tab="schema">Schema</button>
         <button id="gsc-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="gsc-panel" data-top-tab="gsc">Search Console (GSC)</button>
         <button id="help-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="help-panel" data-top-tab="help">Help</button>
       </nav>
 
-      <section id="on-page-panel" class="top-panel active" role="tabpanel" aria-labelledby="on-page-top-tab">
-        <section id="status" class="status" role="status">Open the side panel on a page to analyze the current DOM.</section>
-
+      <section id="page-panel" class="top-panel active" role="tabpanel" aria-labelledby="page-top-tab">
+        <section class="status analysis-status" role="status">Open the side panel on a page to analyze the current DOM.</section>
         <section id="page-data" class="page-data" aria-label="Page SEO data"></section>
+      </section>
+
+      <section id="schema-panel" class="top-panel" role="tabpanel" aria-labelledby="schema-top-tab" hidden>
+        <section class="status analysis-status" role="status">Open the side panel on a page to analyze the current DOM.</section>
 
         <section class="summary-grid" aria-label="Summary">
           <button class="summary-card" data-summary-target="tree" type="button"><span id="count-nodes">0</span><small>Entities</small></button>
