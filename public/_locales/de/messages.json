@@ -8,7 +8,7 @@
     "description": "Kurzer Erweiterungsname fuer kompakte Chrome-Oberflaechen."
   },
   "extDescription": {
-    "message": "Analysiere On-Page-SEO-Metadaten und strukturierte Daten lokal in der Chrome-Seitenleiste.",
+    "message": "Analysiere On-Page-SEO-Metadaten, strukturierte Daten und Google-Search-Console-Suchanfragen in der Chrome-Seitenleiste.",
     "description": "Kurze Erweiterungsbeschreibung in Chrome und im Chrome Web Store."
   }
 }

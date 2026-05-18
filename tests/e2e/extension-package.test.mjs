@@ -58,7 +58,7 @@ test("built extension keeps local-only analysis assumptions", async () => {
   const backgroundJs = await readFile(join(dist, "background.js"), "utf8");
 
   assert.deepEqual(manifest.permissions, ["activeTab", "identity", "sidePanel", "scripting", "storage", "tabs"]);
-  assert.deepEqual(manifest.host_permissions, ["https://www.googleapis.com/*"]);
+  assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
   assert.equal(manifest.oauth2.client_id, "69058266264-ld7v1ub46c76dicqgi0ul04hknq611ti.apps.googleusercontent.com");
   assert.deepEqual(manifest.oauth2.scopes, ["https://www.googleapis.com/auth/webmasters.readonly"]);

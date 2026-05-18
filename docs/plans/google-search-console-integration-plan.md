@@ -67,7 +67,7 @@ The extension is currently a Vanilla TypeScript Manifest V3 Chrome side panel. I
 
 - Add the `identity` and `storage` permissions to the Manifest V3 configuration.
 - Add OAuth client configuration and the read-only Search Console scope.
-- Add Google API host access required for Search Console requests.
+- Use the Chrome Identity token to call Search Console APIs from the background service worker without adding manifest host access.
 - Create typed message contracts between the panel and background service worker for sign-in, sign-out, property discovery, preference reads/writes, and page report queries.
 - Implement background-side token acquisition and token removal/retry behavior for expired or revoked tokens.
 
@@ -115,7 +115,7 @@ The extension is currently a Vanilla TypeScript Manifest V3 Chrome side panel. I
 - [x] Create GSC TypeScript types for auth state, properties, filters, rows, responses, and errors.
 - [x] Add `identity` and `storage` permissions to `public/manifest.json`.
 - [x] Add OAuth client metadata and `https://www.googleapis.com/auth/webmasters.readonly` scope to the manifest.
-- [x] Add required Google API host access for Search Console requests.
+- [x] Keep Search Console requests free of required host permissions.
 - [x] Define panel-to-background runtime message contracts for all GSC actions.
 - [x] Implement OAuth token acquisition in the background service worker.
 - [x] Implement sign-out/token removal behavior.

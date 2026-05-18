@@ -1,8 +1,8 @@
 {
   "name": "on-page-seo-sidebar",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Chrome side panel extension for local on-page SEO structured data analysis.",
+  "description": "Chrome side panel extension for on-page SEO, structured data, and Google Search Console query data.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

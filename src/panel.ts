@@ -27,6 +27,7 @@ let gscQueryFilter = "";
 let gscSort: GscSortState = { key: "clicks", direction: "desc" };
 let gscRequestVersion = 0;
 let gscAutoLoadPending = false;
+let gscAutoLoadTimer: number | undefined;
 
 type GscSortKey = "clicks" | "ctr" | "impressions" | "position" | "query";
 
@@ -184,9 +185,7 @@ async function refreshAnalysis(canRequestAccess = false): Promise<void> {
     setStatus(`Analyzed ${currentResult.title || currentResult.url} at ${formatTime(currentResult.analyzedAt)}.`);
     syncGscTargetWithCurrentPage();
     render();
-    if (activeTopTab === "gsc" && gscState.connected) {
-      void loadGscReport(false);
-    }
+    queueGscAutoLoad();
   } catch (error) {
     currentResult = null;
     searchIndex = emptySearchIndex();
@@ -256,7 +255,7 @@ function activateTopTab(tab: TopTab): void {
     void initializeGsc(false);
   }
   if (tab === "gsc" && gscState.connected && gscState.report === undefined && !gscState.loading) {
-    void loadGscReport(false);
+    queueGscAutoLoad();
   }
 }
 
@@ -462,9 +461,29 @@ function syncGscTargetWithCurrentPage(): void {
   gscQueryFilter = "";
   gscState = { ...gscState, loading: false, targetUrl, report: undefined, error: undefined };
   selectBestKnownGscProperty();
-  if (activeTopTab === "gsc" && gscState.connected && gscState.selectedProperty !== undefined && targetUrl !== undefined) {
-    gscAutoLoadPending = true;
+  queueGscAutoLoad();
+}
+
+function queueGscAutoLoad(): void {
+  if (activeTopTab !== "gsc" || !gscState.connected || gscState.selectedProperty === undefined || gscState.targetUrl === undefined) {
+    gscAutoLoadPending = false;
+    if (gscAutoLoadTimer !== undefined) {
+      window.clearTimeout(gscAutoLoadTimer);
+      gscAutoLoadTimer = undefined;
+    }
+    return;
   }
+  gscAutoLoadPending = true;
+  if (gscState.loading || gscAutoLoadTimer !== undefined) {
+    return;
+  }
+  gscAutoLoadTimer = window.setTimeout(() => {
+    gscAutoLoadTimer = undefined;
+    if (!gscAutoLoadPending || activeTopTab !== "gsc" || !gscState.connected || gscState.loading || gscState.selectedProperty === undefined || gscState.targetUrl === undefined) {
+      return;
+    }
+    void loadGscReport(false);
+  }, 0);
 }
 
 async function initializeGsc(interactive: boolean): Promise<void> {
@@ -516,6 +535,10 @@ async function loadGscReport(forceRefresh: boolean): Promise<void> {
     return;
   }
   gscAutoLoadPending = false;
+  if (gscAutoLoadTimer !== undefined) {
+    window.clearTimeout(gscAutoLoadTimer);
+    gscAutoLoadTimer = undefined;
+  }
   await persistCurrentGscSelection();
 
   const requestVersion = (gscRequestVersion += 1);

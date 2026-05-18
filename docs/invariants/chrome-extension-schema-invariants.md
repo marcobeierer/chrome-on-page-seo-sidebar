@@ -132,7 +132,7 @@ These invariants apply to the Chrome side panel extension for local on-page SEO 
 - Why: A browser sidebar must analyze the active tab from normal browsing contexts and stay current across public sites, staging sites, SPAs, and localhost.
 - Enforced in: `public/manifest.json`, architecture decisions, tests, store-prep docs, and Chrome Web Store permission justifications.
 - Verified by: E2E package tests, manual manifest review, and Chrome Web Store submission checks.
-- Edge cases: The optional GSC integration requires additional `identity`, `storage`, OAuth scope, and Google API host permissions governed by `docs/invariants/google-search-console-invariants.md`. Remote code, telemetry, or original HTML network capture still require an explicit later decision.
+- Edge cases: The optional GSC integration requires additional `identity`, `storage`, and OAuth scope governed by `docs/invariants/google-search-console-invariants.md`. Remote code, telemetry, or original HTML network capture still require an explicit later decision.
 
 ## Cross-References
 

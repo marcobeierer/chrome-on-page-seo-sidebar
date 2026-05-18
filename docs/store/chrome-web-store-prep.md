@@ -3,19 +3,19 @@
 ## Listing Draft
 
 - Name: On-Page SEO Sidebar
-- Short description: Inspect and validate on-page structured data locally from Chrome's side panel.
+- Short description: Analyze on-page SEO metadata, structured data, and Google Search Console query data in Chrome's side panel.
 - Category: Developer Tools or Productivity
 - Primary audience: In-house SEO teams checking structured data and page-level Search Console performance during page QA.
 
 ## Permission Justification
 
-- Requested permissions: `sidePanel`, `scripting`, `tabs`, `identity`, `storage`, Google API host access, and optional page host access.
+- Requested permissions: `sidePanel`, `scripting`, `tabs`, `identity`, `storage`, and optional page host access.
 - Side panel access: required to open the extension as a browser sidebar from the toolbar.
 - Scripting and host access: required to analyze structured data from the active page DOM across public sites, staging sites, SPAs, and localhost.
 - Tabs access: required to detect active-tab changes and navigation so analysis stays current in the sidebar.
 - Identity access: required for optional Google OAuth sign-in to Google Search Console.
 - Storage access: required to remember non-sensitive GSC preferences such as selected property and filters.
-- Google API host access: required to call Google Search Console APIs after explicit user sign-in.
+- Google Search Console API calls are made after explicit user sign-in and do not require manifest host access.
 - Search Console OAuth scope: `https://www.googleapis.com/auth/webmasters.readonly` for read-only Search Console property and Search Analytics data.
 - Remote code: none.
 
@@ -103,7 +103,7 @@ If the user connects Google Search Console, the extension uses Google's read-onl
 - Test localhost and an authenticated staging page.
 - Connect a Google account with Search Console access and verify property discovery, page query rows, date range, search type, country, and device filters.
 - Verify GSC sign-out clears visible report data and cached rows.
-- Confirm the extension package uses only the declared side panel, scripting, tabs, identity, storage, page host, and Google API permissions.
+- Confirm the extension package uses only the declared side panel, scripting, tabs, identity, storage, and optional page host permissions.
 - Confirm the panel bundle makes no direct network calls and GSC API calls are centralized in the background service worker.
 - Capture screenshots for the summary, findings, tree, and source views before submission.
 
