@@ -192,8 +192,61 @@ function isGscApiError(error: unknown): error is GscApiError {
 }
 
 function isGscRuntimeRequest(message: unknown): message is GscRuntimeRequest {
-  if (typeof message !== "object" || message === null || typeof (message as { type?: unknown }).type !== "string") {
+  if (!isRecord(message) || typeof message["type"] !== "string") {
     return false;
   }
-  return (message as { type: string }).type.startsWith("gsc:");
+  switch (message["type"]) {
+    case "gsc:connect":
+    case "gsc:disconnect":
+    case "gsc:listProperties":
+    case "gsc:getPreferences":
+      return true;
+    case "gsc:savePreferences":
+      return isGscPreferences(message["preferences"]);
+    case "gsc:query":
+      return isGscProperty(message["property"]) && typeof message["targetUrl"] === "string" && isGscFilters(message["filters"]) && typeof message["forceRefresh"] === "boolean";
+    default:
+      return false;
+  }
+}
+
+function isGscPreferences(value: unknown): value is GscPreferences {
+  return isRecord(value) && isStringRecord(value["selectedProperties"]) && isGscFilters(value["filters"]);
+}
+
+function isGscProperty(value: unknown): value is GscProperty {
+  return (
+    isRecord(value) &&
+    typeof value["siteUrl"] === "string" &&
+    typeof value["permissionLevel"] === "string" &&
+    (value["type"] === "domain" || value["type"] === "url-prefix") &&
+    typeof value["displayName"] === "string"
+  );
+}
+
+function isGscFilters(value: unknown): value is GscReportResponse["filters"] {
+  return (
+    isRecord(value) &&
+    typeof value["startDate"] === "string" &&
+    typeof value["endDate"] === "string" &&
+    isGscSearchType(value["searchType"]) &&
+    typeof value["country"] === "string" &&
+    isGscDevice(value["device"])
+  );
+}
+
+function isGscSearchType(value: unknown): value is GscReportResponse["filters"]["searchType"] {
+  return value === "web" || value === "image" || value === "video" || value === "news" || value === "discover" || value === "googleNews";
+}
+
+function isGscDevice(value: unknown): value is GscReportResponse["filters"]["device"] {
+  return value === "" || value === "DESKTOP" || value === "MOBILE" || value === "TABLET";
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

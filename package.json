@@ -9,8 +9,9 @@
     "package:store": "npm run build && node scripts/package-store.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/**/*.test.mjs",
+    "coverage": "npm run build && node scripts/coverage.mjs",
     "test:e2e": "npm run build && node --test tests/e2e/**/*.test.mjs",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",

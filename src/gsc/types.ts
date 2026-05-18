@@ -1,4 +1,3 @@
-export const GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 export const GSC_API_ORIGIN = "https://www.googleapis.com";
 export const GSC_CACHE_TTL_MS = 15 * 60 * 1000;
 

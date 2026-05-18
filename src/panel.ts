@@ -1,13 +1,15 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
-import type { AnalysisResult, ExtractedPageData, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
+import type { AnalysisResult, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
 import { DEFAULT_GSC_FILTERS, gscTargetUrl, normalizeFilters, selectBestGscProperty, sitePreferenceKey } from "./gsc/helpers";
 import type { GscApiError, GscPreferences, GscProperty, GscReportResponse, GscRuntimeRequest, GscRuntimeResponse } from "./gsc/types";
-import { inspectedPageAnalysis } from "./inspectedPage";
+import { evaluateActiveTabFunction, evaluateActiveTabPage, isRememberedActiveTab, rememberActiveTabId } from "./panel/activeTab";
 import { copyControl, tooltipControl } from "./panel/copyControls";
-import { childGroups, type ChildGroup, treeMatchesQuery, treeRoots } from "./panel/treeModel";
+import { buildSearchIndex, emptySearchIndex, getFindingSearchText, getNodeSearchText, getSourceSearchText, type SearchIndex } from "./panel/searchIndex";
+import { childGroups, createTreeIndex, type ChildGroup, type TreeIndex, treeMatchesQuery, treeRoots } from "./panel/treeModel";
 import { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 
 let currentResult: AnalysisResult | null = null;
+let searchIndex: SearchIndex = emptySearchIndex();
 type TopTab = "gsc" | "help" | "page" | "schema";
 type HelpTopic = "help-chrome-signin" | "help-connect-gsc" | "help-matching-property" | "help-property-access" | "help-rate-limit";
 
@@ -18,7 +20,6 @@ let activeView: "findings" | "tree" | "source" = "tree";
 let isAnalyzing = false;
 let pageDataOpen = true;
 let lastObservedUrl: string | null = null;
-let lastActiveTabId: number | null = null;
 let pendingRefresh: number | undefined;
 let gscState: GscPanelState = initialGscState();
 let gscFiltersOpen = false;
@@ -138,13 +139,13 @@ for (const card of Array.from(document.querySelectorAll<HTMLButtonElement>("[dat
 }
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
-  lastActiveTabId = activeInfo.tabId;
+  rememberActiveTabId(activeInfo.tabId);
   lastObservedUrl = null;
   scheduleAnalysis("Active tab changed. Analyzing current page...", 250);
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (tabId !== lastActiveTabId) {
+  if (!isRememberedActiveTab(tabId)) {
     return;
   }
   if (changeInfo.url !== undefined) {
@@ -178,6 +179,7 @@ async function refreshAnalysis(canRequestAccess = false): Promise<void> {
   try {
     const extracted = await evaluateActiveTabPage(canRequestAccess);
     currentResult = analyzeExtractedData(extracted);
+    searchIndex = buildSearchIndex(currentResult);
     lastObservedUrl = currentResult.url;
     setStatus(`Analyzed ${currentResult.title || currentResult.url} at ${formatTime(currentResult.analyzedAt)}.`);
     syncGscTargetWithCurrentPage();
@@ -187,6 +189,7 @@ async function refreshAnalysis(canRequestAccess = false): Promise<void> {
     }
   } catch (error) {
     currentResult = null;
+    searchIndex = emptySearchIndex();
     syncGscTargetWithCurrentPage();
     setStatus(error instanceof Error ? error.message : String(error), true);
     render();
@@ -222,98 +225,6 @@ async function refreshIfUrlChanged(): Promise<void> {
   } catch {
     // The active tab may be between navigations. The next poll or navigation event will retry.
   }
-}
-
-function evaluateActiveTabPage(canRequestAccess: boolean): Promise<ExtractedPageData> {
-  return evaluateActiveTabFunction(inspectedPageAnalysis, canRequestAccess);
-}
-
-async function evaluateActiveTabFunction<T>(func: () => T, canRequestAccess = false): Promise<T> {
-  const tab = await getActiveTab();
-  if (tab.id === undefined) {
-    throw new Error("No active tab is available for analysis.");
-  }
-  if (isRestrictedUrl(tab.url)) {
-    throw new Error("Chrome does not allow extensions to analyze this page. Open a normal website, staging page, or localhost URL.");
-  }
-
-  lastActiveTabId = tab.id;
-  if (canRequestAccess) {
-    const granted = await requestTabAccess(tab.url);
-    if (!granted) {
-      throw new Error(missingTabAccessMessage(tab.url));
-    }
-  }
-
-  try {
-    return await executeActiveTabFunction(tab.id, func);
-  } catch (error) {
-    if (!isMissingHostPermissionError(error)) {
-      throw error;
-    }
-    throw new Error(missingTabAccessMessage(tab.url));
-  }
-}
-
-async function executeActiveTabFunction<T>(tabId: number, func: () => T): Promise<T> {
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func,
-  });
-
-  if (result === undefined) {
-    throw new Error("The page did not return analysis data.");
-  }
-  return result.result as T;
-}
-
-async function requestTabAccess(url: string | undefined): Promise<boolean> {
-  const origin = permissionOrigin(url);
-  if (origin === undefined) {
-    return false;
-  }
-  return chrome.permissions.request({ origins: [origin] });
-}
-
-function permissionOrigin(url: string | undefined): string | undefined {
-  try {
-    const parsed = new URL(url ?? "");
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return undefined;
-    }
-    return `${parsed.protocol}//${parsed.hostname}/*`;
-  } catch {
-    return undefined;
-  }
-}
-
-function isMissingHostPermissionError(error: unknown): boolean {
-  return error instanceof Error && /must request permission to access this host/i.test(error.message);
-}
-
-function missingTabAccessMessage(url: string | undefined): string {
-  const origin = pageOrigin(url);
-  return `Chrome has not granted access to ${origin}. Click Refresh and allow site access to analyze this page.`;
-}
-
-function pageOrigin(url: string | undefined): string {
-  try {
-    return new URL(url ?? "").origin;
-  } catch {
-    return "this page";
-  }
-}
-
-async function getActiveTab(): Promise<chrome.tabs.Tab> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab === undefined) {
-    throw new Error("No active tab found. Select a page and reopen the sidebar.");
-  }
-  return tab;
-}
-
-function isRestrictedUrl(url: string | undefined): boolean {
-  return url !== undefined && /^(chrome|chrome-extension|edge|about):/i.test(url);
 }
 
 function render(): void {
@@ -513,12 +424,13 @@ function renderTree(): void {
     return;
   }
   const nodes = result.nodes.filter((node) => matchesFormat(node.format));
-  const roots = treeRoots(nodes).filter((node) => treeMatchesQuery(node, nodes, (entry) => matchesQuery(nodeSearchText(entry))));
+  const treeIndex = createTreeIndex(nodes);
+  const roots = treeRoots(treeIndex).filter((node) => treeMatchesQuery(node, treeIndex, (entry) => matchesQuery(getNodeSearchText(searchIndex, entry))));
   if (roots.length === 0) {
     view.replaceChildren(emptyState("No matching entities", "Adjust filters to show matching structured data entities."));
     return;
   }
-  view.replaceChildren(...roots.map((node) => nodeDetails(node, nodes, new Set())));
+  view.replaceChildren(...roots.map((node) => nodeDetails(node, treeIndex, new Set())));
 }
 
 function renderSources(): void {
@@ -528,7 +440,7 @@ function renderSources(): void {
     view.replaceChildren(emptyState("No sources detected", "JSON-LD scripts, Microdata items, and RDFa entities will appear here."));
     return;
   }
-  const sources = result.sources.filter((source) => matchesFormat(source.format) && matchesQuery(sourceSearchText(source)));
+  const sources = result.sources.filter((source) => matchesFormat(source.format) && matchesQuery(getSourceSearchText(searchIndex, source)));
   view.replaceChildren(...sources.map(sourceDetails));
 }
 
@@ -1059,7 +971,7 @@ function findingCard(finding: Finding, result: AnalysisResult): HTMLElement {
   return article;
 }
 
-function nodeDetails(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<string>): HTMLElement {
+function nodeDetails(node: SchemaNode, treeIndex: TreeIndex, ancestors: Set<string>): HTMLElement {
   const details = document.createElement("details");
   details.className = "node";
   details.open = true;
@@ -1080,14 +992,14 @@ function nodeDetails(node: SchemaNode, allNodes: SchemaNode[], ancestors: Set<st
   summary.replaceChildren(title, actions);
 
   const properties = propertyTable(node.properties);
-  const children = childGroups(node, allNodes, ancestors, (child) => treeMatchesQuery(child, allNodes, (entry) => matchesQuery(nodeSearchText(entry))));
-  const childTree = children.length > 0 ? childTreeElement(children, allNodes, new Set([...ancestors, node.id])) : undefined;
+  const children = childGroups(node, treeIndex, ancestors, (child) => treeMatchesQuery(child, treeIndex, (entry) => matchesQuery(getNodeSearchText(searchIndex, entry))));
+  const childTree = children.length > 0 ? childTreeElement(children, treeIndex, new Set([...ancestors, node.id])) : undefined;
 
   details.replaceChildren(summary, properties, ...(childTree !== undefined ? [childTree] : []));
   return details;
 }
 
-function childTreeElement(groups: ChildGroup[], allNodes: SchemaNode[], ancestors: Set<string>): HTMLElement {
+function childTreeElement(groups: ChildGroup[], treeIndex: TreeIndex, ancestors: Set<string>): HTMLElement {
   const container = document.createElement("section");
   container.className = "child-tree";
   for (const group of groups) {
@@ -1095,7 +1007,7 @@ function childTreeElement(groups: ChildGroup[], allNodes: SchemaNode[], ancestor
     groupElement.className = "child-group";
     const label = document.createElement("h3");
     label.textContent = group.property;
-    groupElement.replaceChildren(label, ...group.nodes.map((child) => nodeDetails(child, allNodes, ancestors)));
+    groupElement.replaceChildren(label, ...group.nodes.map((child) => nodeDetails(child, treeIndex, ancestors)));
     container.append(groupElement);
   }
   return container;
@@ -1205,11 +1117,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function filterFindings(findings: Finding[]): Finding[] {
-  return findings.filter((finding) => matchesSeverity(finding.severity) && matchesFormat(finding.format) && matchesQuery(findingSearchText(finding)));
-}
-
-function filterNodes(nodes: SchemaNode[]): SchemaNode[] {
-  return nodes.filter((node) => matchesFormat(node.format) && matchesQuery(nodeSearchText(node)));
+  return findings.filter((finding) => matchesSeverity(finding.severity) && matchesFormat(finding.format) && matchesQuery(getFindingSearchText(searchIndex, finding)));
 }
 
 function matchesSeverity(severity: string): boolean {
@@ -1223,18 +1131,6 @@ function matchesFormat(format: StructuredDataFormat | undefined): boolean {
 function matchesQuery(text: string): boolean {
   const query = searchInput.value.trim().toLowerCase();
   return query === "" || text.toLowerCase().includes(query);
-}
-
-function findingSearchText(finding: Finding): string {
-  return [finding.title, finding.message, finding.hint, finding.severity, finding.format, finding.property, finding.ruleId].filter(Boolean).join(" ");
-}
-
-function nodeSearchText(node: SchemaNode): string {
-  return [node.id, node.nodeId, node.sourceId, node.format, node.types.join(" "), JSON.stringify(node.properties)].filter(Boolean).join(" ");
-}
-
-function sourceSearchText(source: SourceBlock): string {
-  return [source.id, source.label, source.format, source.selector, source.raw].filter(Boolean).join(" ");
 }
 
 function emptyState(title: string, body: string, action?: HTMLElement): HTMLElement {

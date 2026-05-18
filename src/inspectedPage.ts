@@ -80,7 +80,7 @@ export function inspectedPageAnalysis(): ExtractedPageData {
         format: "json-ld",
         label: `JSON-LD script ${index + 1}`,
         raw: script.textContent ?? "",
-        selector: `script[type="${script.type}"]:nth-of-type(${index + 1})`,
+        selector: selectorFor(script),
       });
     });
   }
