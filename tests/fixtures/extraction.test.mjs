@@ -41,6 +41,23 @@ test("extracts and analyzes JSON-LD from real HTML", () => {
   assert.equal(result.nodes.some((node) => node.types.includes("Product")), true);
 });
 
+test("JSON-LD source selector points to the extracted script", () => {
+  withDocument(`<!doctype html>
+    <html>
+      <head><title>Product</title></head>
+      <body>
+        <script>window.example = true;</script>
+        <script type="application/ld+json">{"@type":"Product","name":"Desk"}</script>
+      </body>
+    </html>`);
+
+  const extracted = inspectedPageAnalysis();
+  const source = extracted.sources[0];
+
+  assert.equal(source?.format, "json-ld");
+  assert.equal(document.querySelector(source.selector)?.textContent, source.raw);
+});
+
 test("extracts nested Microdata ownership from real HTML", () => {
   withDocument(`<!doctype html>
     <html>

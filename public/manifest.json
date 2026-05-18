@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkdidkwsBGykQrEvwZ/bD2YjbDVEBJLWi7qRZQIBomXG2HqeX35S19Xxx0V4kQGVY4onz7EHiGm4QlrG53VBe6j9h93u8tNkJ0K9UElCMSm50Yio81NpT603Xx9LdC3mSk0zKnyJgIcc5qNIaMUGyLkgXLnMzWuABKJAgaj08WLQjUC2e9Z8CDJRG+xY+1aDMcSM+BJ15nUcl+guqlpJgPPde6rx8D2MTZBeXj11DpcH54p+a/rn6AdfpxeHkqzSHN+rPBRpXZO49PnYf255B6dftrjavf8uSYhKqskOG4QmLP5PpWg3yMcWhKXH0O5lxd6eNNUyNRHJ+F1vLWtDU1wIDAQAB",
   "name": "__MSG_extName__",
   "short_name": "__MSG_extShortName__",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "minimum_chrome_version": "114",
@@ -19,8 +20,19 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "sidePanel", "scripting", "tabs"],
+  "permissions": [
+    "activeTab",
+    "identity",
+    "sidePanel",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "oauth2": {
+    "client_id": "69058266264-ld7v1ub46c76dicqgi0ul04hknq611ti.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/webmasters.readonly"]
+  },
   "side_panel": {
     "default_path": "panel.html"
   },

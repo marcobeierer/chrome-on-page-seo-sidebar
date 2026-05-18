@@ -8,8 +8,6 @@ export interface SourceBlock {
   label: string;
   raw: string;
   selector?: string;
-  valid?: boolean;
-  error?: string;
 }
 
 export interface SchemaNode {

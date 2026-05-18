@@ -11,7 +11,7 @@
       <header class="toolbar">
         <div>
           <p class="eyebrow">On-Page SEO Sidebar</p>
-          <h1>Structured data</h1>
+          <h1>On-page SEO</h1>
         </div>
         <div class="toolbar-actions">
           <button id="refresh" type="button">Refresh analysis</button>
@@ -24,56 +24,206 @@
         </div>
       </header>
 
-      <section id="status" class="status" role="status">Open the side panel on a page to analyze the current DOM.</section>
-
-      <section id="page-data" class="page-data" aria-label="Page SEO data"></section>
-
-      <section class="summary-grid" aria-label="Summary">
-        <button class="summary-card" data-summary-target="tree" type="button"><span id="count-nodes">0</span><small>Entities</small></button>
-        <button class="summary-card" data-summary-target="source" type="button"><span id="count-sources">0</span><small>Sources</small></button>
-        <button class="summary-card error" data-summary-target="findings" data-summary-severity="error" type="button"><span id="count-errors">0</span><small>Errors</small></button>
-        <button class="summary-card warning" data-summary-target="findings" data-summary-severity="warning" type="button"><span id="count-warnings">0</span><small>Warnings</small></button>
-        <button class="summary-card info" data-summary-target="findings" data-summary-severity="info" type="button"><span id="count-info">0</span><small>Info</small></button>
-      </section>
-
-      <section class="filters" aria-label="Filters">
-        <label>
-          Search
-          <input id="search" type="search" placeholder="Type, property, message, source...">
-        </label>
-        <label>
-          Format
-          <select id="format">
-            <option value="all">All</option>
-            <option value="json-ld">JSON-LD</option>
-            <option value="microdata">Microdata</option>
-            <option value="rdfa">RDFa</option>
-          </select>
-        </label>
-      </section>
-
-      <nav class="tabs" aria-label="Views">
-        <button class="tab active" data-view="tree" type="button">Tree</button>
-        <button class="tab" data-view="source" type="button">Source</button>
-        <button class="tab" data-view="findings" type="button">Findings <span id="findings-badge" class="tab-badge" hidden></span></button>
+      <nav class="top-tabs" role="tablist" aria-label="Sidebar sections">
+        <button id="page-top-tab" class="top-tab active" type="button" role="tab" aria-selected="true" aria-controls="page-panel" data-top-tab="page">Page data</button>
+        <button id="schema-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="schema-panel" data-top-tab="schema">Schema</button>
+        <button id="gsc-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="gsc-panel" data-top-tab="gsc">Search Console (GSC)</button>
+        <button id="help-top-tab" class="top-tab" type="button" role="tab" aria-selected="false" aria-controls="help-panel" data-top-tab="help">Help</button>
       </nav>
 
-      <section id="tree-view" class="view active" aria-label="Schema tree"></section>
-      <section id="source-view" class="view" aria-label="Raw source"></section>
-      <section id="findings-view" class="view" aria-label="Findings">
-        <p class="findings-note">Findings are a work in progress and may not be reliable because they have not been verified manually yet.</p>
-        <div class="view-toolbar">
+      <section id="page-panel" class="top-panel active" role="tabpanel" aria-labelledby="page-top-tab">
+        <section class="status analysis-status" role="status">Open the side panel on a page to analyze the current DOM.</section>
+        <section id="page-data" class="page-data" aria-label="Page SEO data"></section>
+      </section>
+
+      <section id="schema-panel" class="top-panel" role="tabpanel" aria-labelledby="schema-top-tab" hidden>
+        <section class="status analysis-status" role="status">Open the side panel on a page to analyze the current DOM.</section>
+
+        <section class="summary-grid" aria-label="Summary">
+          <button class="summary-card" data-summary-target="tree" type="button"><span id="count-nodes">0</span><small>Entities</small></button>
+          <button class="summary-card" data-summary-target="source" type="button"><span id="count-sources">0</span><small>Sources</small></button>
+          <button class="summary-card error" data-summary-target="findings" data-summary-severity="error" type="button"><span id="count-errors">0</span><small>Errors</small></button>
+          <button class="summary-card warning" data-summary-target="findings" data-summary-severity="warning" type="button"><span id="count-warnings">0</span><small>Warnings</small></button>
+          <button class="summary-card info" data-summary-target="findings" data-summary-severity="info" type="button"><span id="count-info">0</span><small>Info</small></button>
+        </section>
+
+        <section class="filters" aria-label="Filters">
           <label>
-            Severity
-            <select id="severity">
+            Search
+            <input id="search" type="search" placeholder="Type, property, message, source...">
+          </label>
+          <label>
+            Format
+            <select id="format">
               <option value="all">All</option>
-              <option value="error">Errors</option>
-              <option value="warning">Warnings</option>
-              <option value="info">Info</option>
+              <option value="json-ld">JSON-LD</option>
+              <option value="microdata">Microdata</option>
+              <option value="rdfa">RDFa</option>
             </select>
           </label>
-        </div>
-        <div id="findings-list" class="view-list"></div>
+        </section>
+
+        <nav class="tabs" aria-label="Views">
+          <button class="tab active" data-view="tree" type="button">Tree</button>
+          <button class="tab" data-view="source" type="button">Source</button>
+          <button class="tab" data-view="findings" type="button">Findings <span id="findings-badge" class="tab-badge" hidden></span></button>
+        </nav>
+
+        <section id="tree-view" class="view active" aria-label="Schema tree"></section>
+        <section id="source-view" class="view" aria-label="Raw source"></section>
+        <section id="findings-view" class="view" aria-label="Findings">
+          <p class="findings-note">Findings are a work in progress and may not be reliable because they have not been verified manually yet.</p>
+          <div class="view-toolbar">
+            <label>
+              Severity
+              <select id="severity">
+                <option value="all">All</option>
+                <option value="error">Errors</option>
+                <option value="warning">Warnings</option>
+                <option value="info">Info</option>
+              </select>
+            </label>
+          </div>
+          <div id="findings-list" class="view-list"></div>
+        </section>
+      </section>
+
+      <section id="gsc-panel" class="top-panel" role="tabpanel" aria-labelledby="gsc-top-tab" hidden>
+        <section id="gsc-status" class="status" role="status">Connect Google Search Console to view query data for the current page.</section>
+        <section class="gsc-card" aria-label="Google Search Console data">
+          <div class="gsc-header">
+            <div>
+              <p class="eyebrow">Google Search Console</p>
+              <h2>Page queries</h2>
+              <p id="gsc-target-url" class="gsc-target">Analyze a page to choose a Search Console target URL.</p>
+            </div>
+            <div class="gsc-actions">
+              <button id="gsc-connect" type="button">Connect</button>
+              <button id="gsc-disconnect" class="secondary-button" type="button" hidden>Disconnect</button>
+              <button id="gsc-refresh" class="secondary-button" type="button" hidden>Refresh GSC</button>
+            </div>
+          </div>
+
+          <section class="gsc-property-control" aria-label="GSC property" hidden>
+            <label>
+              Property
+              <select id="gsc-property"></select>
+            </label>
+          </section>
+
+          <section id="gsc-quick-ranges" class="gsc-quick-ranges" aria-label="Quick date ranges" hidden>
+            <button type="button" data-gsc-range="1">24 hours</button>
+            <button type="button" data-gsc-range="7">7 days</button>
+            <button type="button" data-gsc-range="28">28 days</button>
+            <button type="button" data-gsc-range="90">3 months</button>
+          </section>
+
+          <details id="gsc-filter-details" class="gsc-filter-details" hidden>
+            <summary>Report settings</summary>
+            <section class="gsc-controls" aria-label="GSC filters">
+              <label>
+                Start date
+                <input id="gsc-start-date" type="date">
+              </label>
+              <label>
+                End date
+                <input id="gsc-end-date" type="date">
+              </label>
+              <label>
+                Search type
+                <select id="gsc-search-type">
+                  <option value="web">Web</option>
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="news">News</option>
+                  <option value="discover">Discover</option>
+                  <option value="googleNews">Google News</option>
+                </select>
+              </label>
+              <label>
+                Country
+                <input id="gsc-country" type="text" inputmode="latin" placeholder="All or 3-letter code">
+              </label>
+              <label>
+                Device
+                <select id="gsc-device">
+                  <option value="">All</option>
+                  <option value="DESKTOP">Desktop</option>
+                  <option value="MOBILE">Mobile</option>
+                  <option value="TABLET">Tablet</option>
+                </select>
+              </label>
+            </section>
+          </details>
+
+          <section id="gsc-query-filter-panel" class="gsc-query-filter" aria-label="GSC query filter" hidden>
+            <label>
+              Filter queries
+              <input id="gsc-query-filter" type="search" placeholder="Filter by query...">
+            </label>
+          </section>
+
+          <div id="gsc-results" class="gsc-results"></div>
+        </section>
+      </section>
+
+      <section id="help-panel" class="top-panel" role="tabpanel" aria-labelledby="help-top-tab" hidden>
+        <section class="help-card" aria-labelledby="gsc-help-title">
+          <p class="eyebrow">Help</p>
+          <h2 id="gsc-help-title">Connect Google Search Console</h2>
+          <p class="help-intro">Open the question that matches the error you see. Error messages in the Search Console tab link directly to the relevant question.</p>
+
+          <details id="help-chrome-signin" class="help-question">
+            <summary>How do I enable Chrome Sign-in?</summary>
+            <ol class="help-steps">
+              <li>Open Chrome settings.</li>
+              <li>Turn on Chrome Sign-in.</li>
+              <li>Sign into Chrome with the Google account that has Search Console access.</li>
+              <li>Return to this extension and click Connect again.</li>
+            </ol>
+            <p class="help-note">Signing into a Google website is not enough when Chrome Sign-in is disabled. The extension reads Search Console through the Google account signed into Chrome.</p>
+          </details>
+
+          <details id="help-connect-gsc" class="help-question">
+            <summary>How do I connect Google Search Console?</summary>
+            <ol class="help-steps">
+              <li>Open a normal HTTP or HTTPS page from the site you want to check.</li>
+              <li>Open the Search Console (GSC) tab.</li>
+              <li>Click Connect.</li>
+              <li>Choose the Google account that has Search Console access.</li>
+              <li>Approve the permission request for read-only Search Console access.</li>
+            </ol>
+          </details>
+
+          <details id="help-property-access" class="help-question">
+            <summary>Why does it say there are no accessible properties?</summary>
+            <ol class="help-steps">
+              <li>Confirm Chrome is signed into the same Google account you use for Search Console.</li>
+              <li>Open Google Search Console in Chrome and check that the property is visible there.</li>
+              <li>If the property is missing, ask the property owner to add this Google account.</li>
+              <li>Return to the extension and click Connect again.</li>
+            </ol>
+          </details>
+
+          <details id="help-matching-property" class="help-question">
+            <summary>What should I do when no matching property is found?</summary>
+            <ol class="help-steps">
+              <li>Check the current page URL shown in the Search Console tab.</li>
+              <li>Select the Search Console property that contains that exact URL.</li>
+              <li>Use a domain property or the matching URL-prefix property for this site.</li>
+              <li>If the property is not listed, verify the site in Search Console for the signed-in Google account.</li>
+            </ol>
+          </details>
+
+          <details id="help-rate-limit" class="help-question">
+            <summary>What should I do when Search Console rate limits requests?</summary>
+            <ol class="help-steps">
+              <li>Wait a few minutes before trying again.</li>
+              <li>Avoid repeatedly clicking Refresh GSC while the error is visible.</li>
+              <li>Click Refresh GSC after the wait.</li>
+            </ol>
+          </details>
+        </section>
       </section>
     </main>
     <script src="panel.js"></script>

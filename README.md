@@ -14,7 +14,8 @@ Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/on-
 - Normalized schema tree with graph links where identifiers are available.
 - Bundled Google rich result rule catalog with errors, warnings, and info findings.
 - Summary dashboard, findings view, tree view, source view, and search/filter controls.
-- Local-only analysis with no extension network calls or telemetry.
+- Local-only on-page analysis with no telemetry.
+- Optional Google Search Console tab with OAuth, page-level query rows, clicks, impressions, CTR, and average position for connected accounts.
 
 ## Development
 
@@ -43,5 +44,6 @@ Use Chrome's extension activation shortcut settings at `chrome://extensions/shor
 ## Notes
 
 - Results are session-only.
+- Google Search Console report rows are cached in memory only and are not written to extension storage; selected property and filter preferences may be stored locally.
 - Original HTML comparison is intentionally deferred; the current DOM is the source of truth.
 - The Google rule catalog is bundled and should be reviewed when Google Search Central documentation changes.
