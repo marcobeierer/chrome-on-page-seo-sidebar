@@ -5,10 +5,13 @@ import type {
   GscProperty,
   GscReportRow,
   GscReportSummary,
+  GscUrlInspectionResult,
   GscSearchType,
   SearchAnalyticsApiResponse,
   SearchAnalyticsRequestBody,
   SitesListApiResponse,
+  UrlInspectionApiResponse,
+  UrlInspectionRequestBody,
 } from "./types";
 
 export const DEFAULT_GSC_FILTERS: GscFilters = {
@@ -90,6 +93,10 @@ export function buildSearchAnalyticsSummaryRequest(targetUrl: string, filters: G
   };
 }
 
+export function buildUrlInspectionRequest(inspectionUrl: string, siteUrl: string): UrlInspectionRequestBody {
+  return { inspectionUrl, siteUrl };
+}
+
 function baseSearchAnalyticsRequest(targetUrl: string, filters: GscFilters): SearchAnalyticsRequestBody {
   const requestFilters: SearchAnalyticsRequestBody["dimensionFilterGroups"][number]["filters"] = [
     { dimension: "page", operator: "equals", expression: targetUrl },
@@ -130,6 +137,24 @@ export function normalizeSearchAnalyticsRows(response: SearchAnalyticsApiRespons
     }))
     .filter((row) => row.query !== "")
     .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions || a.position - b.position);
+}
+
+export function normalizeUrlInspectionResult(response: UrlInspectionApiResponse): GscUrlInspectionResult | undefined {
+  const result = response.inspectionResult;
+  if (result === undefined) {
+    return undefined;
+  }
+  const googleCanonical = canonicalValue(result.indexStatusResult?.googleCanonical);
+  const userCanonical = canonicalValue(result.indexStatusResult?.userCanonical);
+  const inspectionResultLink = stringOrUndefined(result.inspectionResultLink);
+  if (googleCanonical === undefined && userCanonical === undefined && inspectionResultLink === undefined) {
+    return undefined;
+  }
+  return {
+    ...(googleCanonical !== undefined ? { googleCanonical } : {}),
+    ...(userCanonical !== undefined ? { userCanonical } : {}),
+    ...(inspectionResultLink !== undefined ? { inspectionResultLink } : {}),
+  };
 }
 
 export function gscCacheKey(property: GscProperty, targetUrl: string, filters: GscFilters): string {
@@ -213,6 +238,18 @@ function stringRecord(value: unknown): Record<string, string> {
 
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+function canonicalValue(value: unknown): string | undefined {
+  const canonical = stringOrUndefined(value);
+  if (canonical === undefined || canonical.toLowerCase() === "n/a") {
+    return undefined;
+  }
+  return canonical;
 }
 
 function searchTypeValue(value: unknown, fallback: GscSearchType): GscSearchType {

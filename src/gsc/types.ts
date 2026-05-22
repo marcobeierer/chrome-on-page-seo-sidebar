@@ -1,4 +1,5 @@
 export const GSC_API_ORIGIN = "https://www.googleapis.com";
+export const GSC_INSPECTION_API_ORIGIN = "https://searchconsole.googleapis.com";
 export const GSC_CACHE_TTL_MS = 15 * 60 * 1000;
 
 export type GscSearchType = "web" | "image" | "video" | "news" | "discover" | "googleNews";
@@ -49,6 +50,20 @@ export interface GscReportResponse {
   cacheHit: boolean;
 }
 
+export interface GscInspectionResponse {
+  property: GscProperty;
+  inspectionUrl: string;
+  result?: GscUrlInspectionResult;
+  fetchedAt: string;
+  cacheHit: boolean;
+}
+
+export interface GscUrlInspectionResult {
+  googleCanonical?: string;
+  userCanonical?: string;
+  inspectionResultLink?: string;
+}
+
 export interface GscApiError {
   code: string;
   message: string;
@@ -60,9 +75,10 @@ export type GscRuntimeRequest =
   | { type: "gsc:listProperties" }
   | { type: "gsc:getPreferences" }
   | { type: "gsc:savePreferences"; preferences: GscPreferences }
-  | { type: "gsc:query"; property: GscProperty; targetUrl: string; filters: GscFilters; forceRefresh: boolean };
+  | { type: "gsc:query"; property: GscProperty; targetUrl: string; filters: GscFilters; forceRefresh: boolean }
+  | { type: "gsc:inspectUrl"; property: GscProperty; inspectionUrl: string; forceRefresh: boolean };
 
-export type GscRuntimeValue = GscProperty[] | GscPreferences | GscReportResponse | { signedOut: true } | { saved: true };
+export type GscRuntimeValue = GscProperty[] | GscPreferences | GscReportResponse | GscInspectionResponse | { signedOut: true } | { saved: true };
 
 export type GscRuntimeResponse<T = GscRuntimeValue> = { ok: true; value: T } | { ok: false; error: GscApiError };
 
@@ -91,6 +107,21 @@ export interface SearchAnalyticsApiRow {
 
 export interface SearchAnalyticsApiResponse {
   rows?: SearchAnalyticsApiRow[];
+}
+
+export interface UrlInspectionRequestBody {
+  inspectionUrl: string;
+  siteUrl: string;
+}
+
+export interface UrlInspectionApiResponse {
+  inspectionResult?: {
+    inspectionResultLink?: string;
+    indexStatusResult?: {
+      googleCanonical?: string;
+      userCanonical?: string;
+    };
+  };
 }
 
 export interface SitesListApiResponse {

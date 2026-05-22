@@ -1,7 +1,7 @@
 import { analyzeExtractedData } from "./analyzer/analysis";
 import type { AnalysisResult, Finding, HreflangLink, PageSeoData, SchemaNode, SourceBlock, StructuredDataFormat } from "./analyzer/types";
 import { DEFAULT_GSC_FILTERS, gscTargetUrl, normalizeFilters, selectBestGscProperty, sitePreferenceKey } from "./gsc/helpers";
-import type { GscApiError, GscPreferences, GscProperty, GscReportResponse, GscRuntimeRequest, GscRuntimeResponse } from "./gsc/types";
+import type { GscApiError, GscInspectionResponse, GscPreferences, GscProperty, GscReportResponse, GscRuntimeRequest, GscRuntimeResponse } from "./gsc/types";
 import { evaluateActiveTabFunction, evaluateActiveTabPage, isRememberedActiveTab, rememberActiveTabId } from "./panel/activeTab";
 import { copyControl, tooltipControl } from "./panel/copyControls";
 import { buildSearchIndex, emptySearchIndex, getFindingSearchText, getNodeSearchText, getSourceSearchText, type SearchIndex } from "./panel/searchIndex";
@@ -26,8 +26,10 @@ let gscFiltersOpen = false;
 let gscQueryFilter = "";
 let gscSort: GscSortState = { key: "clicks", direction: "desc" };
 let gscRequestVersion = 0;
+let gscInspectionRequestVersion = 0;
 let gscAutoLoadPending = false;
 let gscAutoLoadTimer: number | undefined;
+let gscInspectionAutoLoadTimer: number | undefined;
 
 type GscSortKey = "clicks" | "ctr" | "impressions" | "position" | "query";
 
@@ -43,6 +45,9 @@ interface GscPanelState {
   preferences: GscPreferences;
   selectedProperty?: GscProperty | undefined;
   targetUrl?: string | undefined;
+  inspectionUrl?: string | undefined;
+  inspectionLoading: boolean;
+  inspection?: GscInspectionResponse | undefined;
   report?: GscReportResponse | undefined;
   error?: GscApiError | undefined;
 }
@@ -306,33 +311,62 @@ function renderPageData(): void {
   const table = document.createElement("table");
   table.className = "metadata-table";
   const tbody = document.createElement("tbody");
-  tbody.append(
+  const rows = [
     metadataRow("Title", page.title.value),
     metadataRow("Meta description", page.metaDescription?.value ?? "Not found", page.metaDescription === undefined),
-    metadataRow("Canonical", page.canonical?.href ?? "Not found", page.canonical === undefined),
-    hreflangRow(page),
-  );
+    metadataUrlRow("Canonical", page.canonical?.href),
+    ...(gscState.connected ? [googleCanonicalRow(page)] : []),
+    hreflangRow(page, currentResult?.url),
+  ];
+  tbody.append(...rows);
   table.append(tbody);
 
   details.replaceChildren(summary, table);
   view.replaceChildren(details);
 }
 
-function metadataRow(label: string, value: string, missing = false): HTMLTableRowElement {
+function metadataRow(label: string, value: string | Node, missing = false): HTMLTableRowElement {
   const row = document.createElement("tr");
   const heading = document.createElement("th");
   heading.scope = "row";
   heading.textContent = label;
   const cell = document.createElement("td");
-  const content = document.createElement("span");
-  content.className = missing ? "missing-value" : "metadata-value";
-  content.textContent = value;
+  const content = value instanceof Node ? value : document.createElement("span");
+  if (!(value instanceof Node)) {
+    content.textContent = value;
+  }
+  if (content instanceof HTMLElement) {
+    content.className = missing ? "missing-value" : "metadata-value";
+  }
   cell.append(content);
   row.replaceChildren(heading, cell);
   return row;
 }
 
-function hreflangRow(page: PageSeoData): HTMLTableRowElement {
+function metadataUrlRow(label: string, url: string | undefined): HTMLTableRowElement {
+  return url === undefined ? metadataRow(label, "Not found", true) : metadataRow(label, urlLink(url));
+}
+
+function googleCanonicalRow(page: PageSeoData): HTMLTableRowElement {
+  const inspection = gscState.inspection;
+  if (gscState.inspectionLoading && inspection === undefined) {
+    return metadataRow("Google-selected canonical", "Loading from Search Console...", true);
+  }
+  if (inspection === undefined || inspection.inspectionUrl !== gscState.inspectionUrl || inspection.property.siteUrl !== gscState.selectedProperty?.siteUrl) {
+    return metadataRow("Google-selected canonical", "Refresh GSC to load", true);
+  }
+  const googleCanonical = inspection.result?.googleCanonical;
+  if (googleCanonical === undefined) {
+    return metadataRow("Google-selected canonical", "Not available", true);
+  }
+  const userCanonical = page.canonical?.href ?? inspection.result?.userCanonical;
+  if (userCanonical !== undefined && sameUrl(googleCanonical, userCanonical)) {
+    return metadataRow("Google-selected canonical", "Identical to user-selected canonical");
+  }
+  return metadataRow("Google-selected canonical", urlLink(googleCanonical));
+}
+
+function hreflangRow(page: PageSeoData, currentUrl: string | undefined): HTMLTableRowElement {
   const row = document.createElement("tr");
   const heading = document.createElement("th");
   heading.scope = "row";
@@ -344,25 +378,55 @@ function hreflangRow(page: PageSeoData): HTMLTableRowElement {
     missing.textContent = "Not found";
     cell.append(missing);
   } else {
-    cell.append(hreflangList(page.hreflang));
+    cell.append(hreflangList(page.hreflang, currentUrl));
   }
   row.replaceChildren(heading, cell);
   return row;
 }
 
-function hreflangList(links: HreflangLink[]): HTMLElement {
+function hreflangList(links: HreflangLink[], currentUrl: string | undefined): HTMLElement {
   const list = document.createElement("ul");
   list.className = "hreflang-list";
   for (const link of links) {
     const item = document.createElement("li");
     const lang = document.createElement("strong");
     lang.textContent = link.hreflang;
-    const href = document.createElement("span");
-    href.textContent = link.href;
-    item.replaceChildren(lang, href);
+    const label = document.createElement("span");
+    label.className = "hreflang-label";
+    label.append(lang);
+    if (currentUrl !== undefined && sameUrl(link.href, currentUrl)) {
+      const badge = document.createElement("span");
+      badge.className = "hreflang-current";
+      badge.textContent = "Current page";
+      label.append(badge);
+    }
+    item.replaceChildren(label, urlLink(link.href));
     list.append(item);
   }
   return list;
+}
+
+function urlLink(url: string): HTMLAnchorElement {
+  const link = document.createElement("a");
+  link.href = url;
+  link.textContent = url;
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    void chrome.tabs.update({ url });
+  });
+  return link;
+}
+
+function sameUrl(a: string, b: string): boolean {
+  try {
+    const first = new URL(a);
+    const second = new URL(b);
+    first.hash = "";
+    second.hash = "";
+    return first.href === second.href;
+  } catch {
+    return a.trim() === b.trim();
+  }
 }
 
 function renderSummary(): void {
@@ -446,6 +510,7 @@ function renderSources(): void {
 function initialGscState(): GscPanelState {
   return {
     loading: false,
+    inspectionLoading: false,
     connected: false,
     properties: [],
     preferences: { selectedProperties: {}, filters: { ...DEFAULT_GSC_FILTERS } },
@@ -454,14 +519,32 @@ function initialGscState(): GscPanelState {
 
 function syncGscTargetWithCurrentPage(): void {
   const targetUrl = gscTargetUrl(currentResult?.url, currentResult?.page.canonical?.href);
-  if (gscState.targetUrl === targetUrl) {
+  const inspectionUrl = gscTargetUrl(currentResult?.url, undefined);
+  if (gscState.targetUrl === targetUrl && gscState.inspectionUrl === inspectionUrl) {
     return;
   }
-  gscRequestVersion += 1;
+  const targetChanged = gscState.targetUrl !== targetUrl;
+  const inspectionChanged = gscState.inspectionUrl !== inspectionUrl;
+  if (targetChanged) {
+    gscRequestVersion += 1;
+  }
+  if (inspectionChanged) {
+    gscInspectionRequestVersion += 1;
+  }
   gscQueryFilter = "";
-  gscState = { ...gscState, loading: false, targetUrl, report: undefined, error: undefined };
+  gscState = {
+    ...gscState,
+    loading: false,
+    inspectionLoading: false,
+    targetUrl,
+    inspectionUrl,
+    report: targetChanged ? undefined : gscState.report,
+    inspection: inspectionChanged ? undefined : gscState.inspection,
+    error: undefined,
+  };
   selectBestKnownGscProperty();
   queueGscAutoLoad();
+  queueGscInspectionLoad(false);
 }
 
 function queueGscAutoLoad(): void {
@@ -486,6 +569,33 @@ function queueGscAutoLoad(): void {
   }, 0);
 }
 
+function queueGscInspectionLoad(forceRefresh: boolean): void {
+  if (!gscState.connected || gscState.selectedProperty === undefined || gscState.inspectionUrl === undefined) {
+    if (gscInspectionAutoLoadTimer !== undefined) {
+      window.clearTimeout(gscInspectionAutoLoadTimer);
+      gscInspectionAutoLoadTimer = undefined;
+    }
+    return;
+  }
+  if (gscInspectionAutoLoadTimer !== undefined) {
+    if (!forceRefresh) {
+      return;
+    }
+    window.clearTimeout(gscInspectionAutoLoadTimer);
+    gscInspectionAutoLoadTimer = undefined;
+  }
+  if (gscState.inspectionLoading) {
+    return;
+  }
+  gscInspectionAutoLoadTimer = window.setTimeout(() => {
+    gscInspectionAutoLoadTimer = undefined;
+    if (!gscState.connected || gscState.inspectionLoading || gscState.selectedProperty === undefined || gscState.inspectionUrl === undefined) {
+      return;
+    }
+    void loadGscInspection(forceRefresh);
+  }, 0);
+}
+
 async function initializeGsc(interactive: boolean): Promise<void> {
   syncGscTargetWithCurrentPage();
   gscState = { ...gscState, loading: true, error: undefined };
@@ -497,19 +607,17 @@ async function initializeGsc(interactive: boolean): Promise<void> {
     await persistCurrentGscSelection();
     renderGsc();
     if (gscState.selectedProperty !== undefined && gscState.targetUrl !== undefined) {
+      queueGscInspectionLoad(false);
       void loadGscReport(false);
     }
   } catch (error) {
-    gscState = { ...gscState, loading: false, connected: false, properties: [], report: undefined, error: normalizePanelGscError(error) };
+    gscState = { ...gscState, loading: false, inspectionLoading: false, connected: false, properties: [], report: undefined, inspection: undefined, error: normalizePanelGscError(error) };
     renderGsc();
   }
 }
 
 async function connectGsc(): Promise<void> {
   await initializeGsc(true);
-  if (gscState.connected) {
-    await loadGscReport(false);
-  }
 }
 
 async function disconnectGsc(): Promise<void> {
@@ -518,7 +626,7 @@ async function disconnectGsc(): Promise<void> {
   try {
     await sendGscMessage({ type: "gsc:disconnect" });
   } finally {
-    gscState = { ...initialGscState(), targetUrl: gscState.targetUrl };
+    gscState = { ...initialGscState(), targetUrl: gscState.targetUrl, inspectionUrl: gscState.inspectionUrl };
     renderGsc();
   }
 }
@@ -540,6 +648,7 @@ async function loadGscReport(forceRefresh: boolean): Promise<void> {
     gscAutoLoadTimer = undefined;
   }
   await persistCurrentGscSelection();
+  queueGscInspectionLoad(forceRefresh);
 
   const requestVersion = (gscRequestVersion += 1);
   const filters = { ...gscState.preferences.filters };
@@ -563,6 +672,33 @@ async function loadGscReport(forceRefresh: boolean): Promise<void> {
   }
 }
 
+async function loadGscInspection(forceRefresh: boolean): Promise<void> {
+  syncGscTargetWithCurrentPage();
+  const property = gscState.selectedProperty;
+  const inspectionUrl = gscState.inspectionUrl;
+  if (!gscState.connected || property === undefined || inspectionUrl === undefined) {
+    renderGsc();
+    return;
+  }
+
+  const requestVersion = (gscInspectionRequestVersion += 1);
+  gscState = { ...gscState, inspectionLoading: true };
+  renderGsc();
+  try {
+    const inspection = await sendGscMessage<GscInspectionResponse>({ type: "gsc:inspectUrl", property, inspectionUrl, forceRefresh });
+    if (!isCurrentGscInspectionRequest(requestVersion, inspectionUrl, property)) {
+      return;
+    }
+    gscState = { ...gscState, inspectionLoading: false, inspection };
+  } catch {
+    if (!isCurrentGscInspectionRequest(requestVersion, inspectionUrl, property)) {
+      return;
+    }
+    gscState = { ...gscState, inspectionLoading: false, inspection: undefined };
+  }
+  renderGsc();
+}
+
 function isCurrentGscRequest(requestVersion: number, targetUrl: string, property: GscProperty, filters: GscReportResponse["filters"]): boolean {
   return (
     requestVersion === gscRequestVersion &&
@@ -570,6 +706,10 @@ function isCurrentGscRequest(requestVersion: number, targetUrl: string, property
     gscState.selectedProperty?.siteUrl === property.siteUrl &&
     sameGscFilters(gscState.preferences.filters, filters)
   );
+}
+
+function isCurrentGscInspectionRequest(requestVersion: number, inspectionUrl: string, property: GscProperty): boolean {
+  return requestVersion === gscInspectionRequestVersion && gscState.inspectionUrl === inspectionUrl && gscState.selectedProperty?.siteUrl === property.siteUrl;
 }
 
 function sameGscFilters(a: GscReportResponse["filters"], b: GscReportResponse["filters"]): boolean {
@@ -587,7 +727,7 @@ async function selectGscProperty(siteUrl: string): Promise<void> {
     selectedProperties[sitePreferenceKey(targetUrl)] = selectedProperty.siteUrl;
   }
   const preferences = { ...gscState.preferences, selectedProperties };
-  gscState = { ...gscState, preferences, selectedProperty, report: undefined };
+  gscState = { ...gscState, preferences, selectedProperty, report: undefined, inspection: undefined };
   await saveGscPreferences(preferences);
   await loadGscReport(false);
 }
@@ -656,6 +796,7 @@ function selectBestKnownGscProperty(): void {
 }
 
 function renderGsc(): void {
+  renderPageData();
   const status = requireElement<HTMLElement>("gsc-status");
   const target = requireElement<HTMLElement>("gsc-target-url");
   const propertyControl = document.querySelector<HTMLElement>(".gsc-property-control");
@@ -712,14 +853,50 @@ function renderGsc(): void {
   }
   const rows = visibleGscRows(gscState.report);
   if (gscState.report.rows.length === 0) {
-    results.replaceChildren(emptyState("No query data", "Search Console returned no query rows for this page and filter set."), gscReportMeta(gscState.report));
+    results.replaceChildren(...gscCanonicalHintElements(), emptyState("No query data", "Search Console returned no query rows for this page and filter set."), gscReportMeta(gscState.report));
     return;
   }
   if (rows.length === 0) {
-    results.replaceChildren(emptyState("No matching queries", "Adjust the query filter to show Search Console rows."), gscReportMeta(gscState.report));
+    results.replaceChildren(...gscCanonicalHintElements(), emptyState("No matching queries", "Adjust the query filter to show Search Console rows."), gscReportMeta(gscState.report));
     return;
   }
-  results.replaceChildren(gscReportMeta(gscState.report, rows.length), gscTotals(gscState.report, rows), gscTableHeading(), gscTable(rows));
+  results.replaceChildren(...gscCanonicalHintElements(), gscReportMeta(gscState.report, rows.length), gscTotals(gscState.report, rows), gscTableHeading(), gscTable(rows));
+}
+
+function gscCanonicalHintElements(): HTMLElement[] {
+  const hint = gscCanonicalHint();
+  return hint === undefined ? [] : [hint];
+}
+
+function gscCanonicalHint(): HTMLElement | undefined {
+  if (gscState.inspectionLoading) {
+    const note = document.createElement("section");
+    note.className = "gsc-canonical-hint loading";
+    note.textContent = "Loading Google-selected canonical from Search Console...";
+    return note;
+  }
+
+  const googleCanonical = gscState.inspection?.result?.googleCanonical;
+  const targetUrl = gscState.targetUrl;
+  const inspectionUrl = gscState.inspectionUrl;
+  if (googleCanonical === undefined || targetUrl === undefined || inspectionUrl === undefined) {
+    return undefined;
+  }
+
+  const note = document.createElement("section");
+  if (sameUrl(googleCanonical, inspectionUrl)) {
+    note.className = "gsc-canonical-hint current";
+    note.textContent = "Google selected the current page as canonical.";
+    return note;
+  }
+  if (sameUrl(googleCanonical, targetUrl)) {
+    return undefined;
+  }
+  note.className = "gsc-canonical-hint different";
+  const text = document.createElement("span");
+  text.textContent = "Google selected a different canonical. Search Console data is usually reported on that canonical URL: ";
+  note.replaceChildren(text, urlLink(googleCanonical));
+  return note;
 }
 
 function renderGscStatus(status: HTMLElement): void {

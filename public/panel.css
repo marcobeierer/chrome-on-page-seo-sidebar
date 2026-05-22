@@ -295,8 +295,26 @@ select {
   padding: 0;
 }
 
+.hreflang-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.hreflang-current {
+  background: var(--blue-soft);
+  border-radius: 999px;
+  color: var(--blue);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+}
+
 .hreflang-list li {
-  display: grid;
+  align-items: start;
+  display: flex;
+  flex-direction: column;
   gap: 3px;
 }
 
@@ -305,7 +323,7 @@ select {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-.hreflang-list span {
+.hreflang-list a {
   overflow-wrap: anywhere;
 }
 
@@ -465,6 +483,34 @@ select {
   color: var(--muted);
   margin: 6px 0 0;
   overflow-wrap: anywhere;
+}
+
+.gsc-canonical-hint {
+  border-radius: 12px;
+  color: var(--text);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+}
+
+.gsc-canonical-hint.loading {
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+.gsc-canonical-hint.current {
+  background: var(--info-soft);
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
+}
+
+.gsc-canonical-hint.different {
+  background: var(--error-soft);
+  border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+}
+
+.gsc-canonical-hint a {
+  color: inherit;
+  font-weight: 800;
 }
 
 .gsc-actions {

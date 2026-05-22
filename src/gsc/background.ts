@@ -1,24 +1,29 @@
-import { GSC_API_ORIGIN } from "./types";
+import { GSC_API_ORIGIN, GSC_CACHE_TTL_MS, GSC_INSPECTION_API_ORIGIN } from "./types";
 import type {
   GscApiError,
+  GscInspectionResponse,
   GscPreferences,
   GscProperty,
   GscReportResponse,
+  GscUrlInspectionResult,
   GscRuntimeRequest,
   GscRuntimeResponse,
   GscRuntimeValue,
   SearchAnalyticsApiResponse,
   SitesListApiResponse,
+  UrlInspectionApiResponse,
 } from "./types";
 import { GscMemoryCache } from "./cache";
-import { buildSearchAnalyticsRequest, buildSearchAnalyticsSummaryRequest, normalizeGscProperties, normalizeSearchAnalyticsRows, normalizeSearchAnalyticsSummary, normalizeStoredPreferences } from "./helpers";
+import { buildSearchAnalyticsRequest, buildSearchAnalyticsSummaryRequest, buildUrlInspectionRequest, normalizeGscProperties, normalizeSearchAnalyticsRows, normalizeSearchAnalyticsSummary, normalizeStoredPreferences, normalizeUrlInspectionResult } from "./helpers";
 
 const STORAGE_KEY = "gscPreferences";
 const cache = new GscMemoryCache();
+const inspectionCache = new Map<string, { storedAt: number; response: GscInspectionResponse }>();
 
 export function registerGscRuntimeHandlers(): void {
   chrome.identity.onSignInChanged.addListener(() => {
     cache.clear();
+    inspectionCache.clear();
   });
 
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
@@ -53,6 +58,9 @@ async function handleGscRuntimeRequest(message: GscRuntimeRequest): Promise<GscR
   }
   if (message.type === "gsc:query") {
     return queryPage(message.property, message.targetUrl, message.filters, message.forceRefresh);
+  }
+  if (message.type === "gsc:inspectUrl") {
+    return inspectUrl(message.property, message.inspectionUrl, message.forceRefresh);
   }
   throw new Error("Unsupported GSC request.");
 }
@@ -98,6 +106,61 @@ async function queryPage(property: GscProperty, targetUrl: string, filters: GscR
   return report;
 }
 
+async function inspectUrl(property: GscProperty, inspectionUrl: string, forceRefresh: boolean): Promise<GscInspectionResponse> {
+  if (!forceRefresh) {
+    const cached = getCachedInspection(property, inspectionUrl);
+    if (cached !== undefined) {
+      return cached;
+    }
+  }
+
+  const token = await getAuthToken(false);
+  const result = await fetchUrlInspection(token, property, inspectionUrl);
+  const response: GscInspectionResponse = {
+    property,
+    inspectionUrl,
+    ...(result !== undefined ? { result } : {}),
+    fetchedAt: new Date().toISOString(),
+    cacheHit: false,
+  };
+  setCachedInspection(response);
+  return response;
+}
+
+async function fetchUrlInspection(token: string, property: GscProperty, inspectionUrl: string): Promise<GscUrlInspectionResult | undefined> {
+  try {
+    const response = await fetchJson<UrlInspectionApiResponse>(`${GSC_INSPECTION_API_ORIGIN}/v1/urlInspection/index:inspect`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildUrlInspectionRequest(inspectionUrl, property.siteUrl)),
+    });
+    return normalizeUrlInspectionResult(response);
+  } catch {
+    return undefined;
+  }
+}
+
+function getCachedInspection(property: GscProperty, inspectionUrl: string, now = Date.now()): GscInspectionResponse | undefined {
+  const key = inspectionCacheKey(property, inspectionUrl);
+  const entry = inspectionCache.get(key);
+  if (entry === undefined) {
+    return undefined;
+  }
+  if (now - entry.storedAt > GSC_CACHE_TTL_MS) {
+    inspectionCache.delete(key);
+    return undefined;
+  }
+  return { ...entry.response, cacheHit: true };
+}
+
+function setCachedInspection(response: GscInspectionResponse, now = Date.now()): void {
+  inspectionCache.set(inspectionCacheKey(response.property, response.inspectionUrl), { storedAt: now, response: { ...response, cacheHit: false } });
+}
+
+function inspectionCacheKey(property: GscProperty, inspectionUrl: string): string {
+  return JSON.stringify({ property: property.siteUrl, inspectionUrl });
+}
+
 async function getPreferences(): Promise<GscPreferences> {
   const stored = await chrome.storage.local.get(STORAGE_KEY);
   return normalizeStoredPreferences(stored[STORAGE_KEY]);
@@ -115,6 +178,7 @@ async function disconnectGsc(): Promise<void> {
     // Already signed out or token unavailable.
   }
   cache.clear();
+  inspectionCache.clear();
 }
 
 async function getAuthToken(interactive: boolean): Promise<string> {
@@ -205,6 +269,8 @@ function isGscRuntimeRequest(message: unknown): message is GscRuntimeRequest {
       return isGscPreferences(message["preferences"]);
     case "gsc:query":
       return isGscProperty(message["property"]) && typeof message["targetUrl"] === "string" && isGscFilters(message["filters"]) && typeof message["forceRefresh"] === "boolean";
+    case "gsc:inspectUrl":
+      return isGscProperty(message["property"]) && typeof message["inspectionUrl"] === "string" && typeof message["forceRefresh"] === "boolean";
     default:
       return false;
   }

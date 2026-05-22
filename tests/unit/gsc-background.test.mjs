@@ -50,6 +50,29 @@ test("GSC runtime query fetches rows, returns cached reports, and clears cache o
   assert.equal(fetchCalls[0].body.dimensionFilterGroups[0].filters[0].expression, "https://example.com/page");
 });
 
+test("GSC runtime inspects URLs separately from query data", async () => {
+  const chromeMock = installChrome();
+  const fetchCalls = installFetch(() => ({ inspectionResult: { indexStatusResult: { googleCanonical: "https://example.com/google", userCanonical: "https://example.com/page" } } }));
+  const { registerGscRuntimeHandlers } = await importFreshTestApi();
+  registerGscRuntimeHandlers();
+
+  const message = {
+    type: "gsc:inspectUrl",
+    property: property(),
+    inspectionUrl: "https://example.com/current",
+    forceRefresh: false,
+  };
+
+  const first = await dispatch(chromeMock.messageListeners[0], message);
+  const cached = await dispatch(chromeMock.messageListeners[0], message);
+
+  assert.equal(first.ok, true);
+  assert.equal(first.value.result.googleCanonical, "https://example.com/google");
+  assert.equal(cached.value.cacheHit, true);
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].body.inspectionUrl, "https://example.com/current");
+});
+
 test("GSC runtime stores preferences and rejects malformed messages", async () => {
   const chromeMock = installChrome();
   const { registerGscRuntimeHandlers } = await importFreshTestApi();
@@ -57,6 +80,7 @@ test("GSC runtime stores preferences and rejects malformed messages", async () =
   const listener = chromeMock.messageListeners[0];
 
   assert.equal(listener({ type: "gsc:query", property: {}, filters: filters(), targetUrl: "https://example.com", forceRefresh: false }, {}, () => {}), false);
+  assert.equal(listener({ type: "gsc:inspectUrl", property: property(), inspectionUrl: 123, forceRefresh: false }, {}, () => {}), false);
 
   const preferences = { selectedProperties: { "example.com": "https://example.com/" }, filters: filters() };
   const saveResponse = await dispatch(listener, { type: "gsc:savePreferences", preferences });

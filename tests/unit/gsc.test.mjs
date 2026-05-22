@@ -4,11 +4,13 @@ import {
   GscMemoryCache,
   buildSearchAnalyticsRequest,
   buildSearchAnalyticsSummaryRequest,
+  buildUrlInspectionRequest,
   gscTargetUrl,
   normalizeGscProperties,
   normalizeSearchAnalyticsRows,
   normalizeSearchAnalyticsSummary,
   normalizeStoredPreferences,
+  normalizeUrlInspectionResult,
   selectBestGscProperty,
   sitePreferenceKey,
 } from "../../dist/test-api.mjs";
@@ -83,6 +85,22 @@ test("GSC summary normalizes page-level totals", () => {
   assert.deepEqual(summary, { clicks: 123, impressions: 456, ctr: 0.27, position: 3.4 });
 });
 
+test("GSC URL inspection request and canonical normalize", () => {
+  assert.deepEqual(buildUrlInspectionRequest("https://example.com/current", "https://example.com/"), {
+    inspectionUrl: "https://example.com/current",
+    siteUrl: "https://example.com/",
+  });
+  assert.deepEqual(
+    normalizeUrlInspectionResult({
+      inspectionResult: {
+        inspectionResultLink: "https://search.google.com/search-console/inspect/drilldown",
+        indexStatusResult: { googleCanonical: "https://example.com/google", userCanonical: "N/A" },
+      },
+    }),
+    { googleCanonical: "https://example.com/google", inspectionResultLink: "https://search.google.com/search-console/inspect/drilldown" },
+  );
+});
+
 test("GSC memory cache expires after 15 minutes", () => {
   const cache = new GscMemoryCache();
   const property = { siteUrl: "https://example.com/", permissionLevel: "siteFullUser", type: "url-prefix", displayName: "https://example.com/" };
@@ -90,6 +108,7 @@ test("GSC memory cache expires after 15 minutes", () => {
   cache.set({ property, targetUrl: "https://example.com/page", filters, summary: { clicks: 0, impressions: 0, ctr: 0, position: 0 }, rows: [], fetchedAt: "2026-05-01T00:00:00.000Z", cacheHit: false }, 0);
 
   assert.equal(cache.get(property, "https://example.com/page", filters, 15 * 60 * 1000)?.cacheHit, true);
+  assert.equal(cache.get(property, "https://example.com/other", filters, 15 * 60 * 1000), undefined);
   assert.equal(cache.get(property, "https://example.com/page", filters, 15 * 60 * 1000 + 1), undefined);
 });
 
