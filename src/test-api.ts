@@ -6,6 +6,7 @@ export { buildSearchAnalyticsRequest, buildSearchAnalyticsSummaryRequest, buildU
 export { inspectedPageAnalysis } from "./inspectedPage";
 export { evaluateActiveTabFunction, evaluateActiveTabPage, isRememberedActiveTab, rememberActiveTabId } from "./panel/activeTab";
 export { copyControl, tooltipControl } from "./panel/copyControls";
+export { gscIndexStatusCard } from "./panel/gscIndexStatus";
 export { buildSearchIndex, emptySearchIndex, getFindingSearchText, getNodeSearchText, getSourceSearchText } from "./panel/searchIndex";
 export { sourceCodeBlock, sourceDisplayText } from "./panel/sourceFormat";
 export { childGroups, createTreeIndex, findLinkedNode, treeMatchesQuery, treeRoots } from "./panel/treeModel";

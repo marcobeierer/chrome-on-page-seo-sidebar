@@ -73,6 +73,44 @@ test("GSC runtime inspects URLs separately from query data", async () => {
   assert.equal(fetchCalls[0].body.inspectionUrl, "https://example.com/current");
 });
 
+test("GSC inspection caches status-only responses and force refresh bypasses cache", async () => {
+  const chromeMock = installChrome();
+  const fetchCalls = installFetch(() => ({ inspectionResult: { indexStatusResult: { verdict: "PASS", coverageState: "Submitted and indexed" } } }));
+  const { registerGscRuntimeHandlers } = await importFreshTestApi();
+  registerGscRuntimeHandlers();
+  const message = { type: "gsc:inspectUrl", property: property(), inspectionUrl: "https://example.com/status-only", forceRefresh: false };
+
+  const first = await dispatch(chromeMock.messageListeners[0], message);
+  const cached = await dispatch(chromeMock.messageListeners[0], message);
+  const refreshed = await dispatch(chromeMock.messageListeners[0], { ...message, forceRefresh: true });
+
+  assert.deepEqual(first.value.result, { verdict: "PASS", coverageState: "Submitted and indexed" });
+  assert.equal(cached.value.cacheHit, true);
+  assert.equal(refreshed.value.cacheHit, false);
+  assert.equal(fetchCalls.length, 2);
+});
+
+test("GSC inspection failures surface actionable errors and are not cached", async () => {
+  const chromeMock = installChrome();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ error: { status: "PERMISSION_DENIED", message: "Forbidden" } }), { status: 403, statusText: "Forbidden" });
+  };
+  const { registerGscRuntimeHandlers } = await importFreshTestApi();
+  registerGscRuntimeHandlers();
+  const message = { type: "gsc:inspectUrl", property: property(), inspectionUrl: "https://example.com/failure", forceRefresh: false };
+
+  const first = await dispatch(chromeMock.messageListeners[0], message);
+  const retry = await dispatch(chromeMock.messageListeners[0], message);
+
+  assert.equal(first.ok, false);
+  assert.equal(first.error.code, "PERMISSION_DENIED");
+  assert.match(first.error.message, /cannot read the selected Search Console property/);
+  assert.equal(retry.ok, false);
+  assert.equal(calls, 2);
+});
+
 test("GSC runtime stores preferences and rejects malformed messages", async () => {
   const chromeMock = installChrome();
   const { registerGscRuntimeHandlers } = await importFreshTestApi();

@@ -89,13 +89,12 @@
       </section>
 
       <section id="gsc-panel" class="top-panel" role="tabpanel" aria-labelledby="gsc-top-tab" hidden>
-        <section id="gsc-status" class="status" role="status">Connect Google Search Console to view query data for the current page.</section>
+        <section id="gsc-status" class="status" role="status" hidden></section>
         <section class="gsc-card" aria-label="Google Search Console data">
           <div class="gsc-header">
             <div>
               <p class="eyebrow">Google Search Console</p>
               <h2>Page queries</h2>
-              <p id="gsc-target-url" class="gsc-target">Analyze a page to choose a Search Console target URL.</p>
             </div>
             <div class="gsc-actions">
               <button id="gsc-connect" type="button">Connect</button>
@@ -110,6 +109,8 @@
               <select id="gsc-property"></select>
             </label>
           </section>
+
+          <div id="gsc-index-status" hidden></div>
 
           <section id="gsc-quick-ranges" class="gsc-quick-ranges" aria-label="Quick date ranges" hidden>
             <button type="button" data-gsc-range="1">24 hours</button>

@@ -16,6 +16,7 @@ Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/on-
 - Summary dashboard, findings view, tree view, source view, and search/filter controls.
 - Local-only on-page analysis with no telemetry.
 - Optional Google Search Console tab with OAuth, page-level query rows, clicks, impressions, CTR, and average position for connected accounts.
+- Current-page indexing status from URL Inspection, with a shortcut to request indexing manually in Search Console for non-indexed pages.
 
 ## Development
 

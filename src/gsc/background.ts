@@ -128,16 +128,12 @@ async function inspectUrl(property: GscProperty, inspectionUrl: string, forceRef
 }
 
 async function fetchUrlInspection(token: string, property: GscProperty, inspectionUrl: string): Promise<GscUrlInspectionResult | undefined> {
-  try {
-    const response = await fetchJson<UrlInspectionApiResponse>(`${GSC_INSPECTION_API_ORIGIN}/v1/urlInspection/index:inspect`, token, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildUrlInspectionRequest(inspectionUrl, property.siteUrl)),
-    });
-    return normalizeUrlInspectionResult(response);
-  } catch {
-    return undefined;
-  }
+  const response = await fetchJson<UrlInspectionApiResponse>(`${GSC_INSPECTION_API_ORIGIN}/v1/urlInspection/index:inspect`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildUrlInspectionRequest(inspectionUrl, property.siteUrl)),
+  });
+  return normalizeUrlInspectionResult(response);
 }
 
 function getCachedInspection(property: GscProperty, inspectionUrl: string, now = Date.now()): GscInspectionResponse | undefined {

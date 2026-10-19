@@ -147,10 +147,14 @@ export function normalizeUrlInspectionResult(response: UrlInspectionApiResponse)
   const googleCanonical = canonicalValue(result.indexStatusResult?.googleCanonical);
   const userCanonical = canonicalValue(result.indexStatusResult?.userCanonical);
   const inspectionResultLink = stringOrUndefined(result.inspectionResultLink);
-  if (googleCanonical === undefined && userCanonical === undefined && inspectionResultLink === undefined) {
+  const verdict = stringOrUndefined(result.indexStatusResult?.verdict);
+  const coverageState = stringOrUndefined(result.indexStatusResult?.coverageState);
+  if (googleCanonical === undefined && userCanonical === undefined && inspectionResultLink === undefined && verdict === undefined && coverageState === undefined) {
     return undefined;
   }
   return {
+    ...(verdict !== undefined ? { verdict } : {}),
+    ...(coverageState !== undefined ? { coverageState } : {}),
     ...(googleCanonical !== undefined ? { googleCanonical } : {}),
     ...(userCanonical !== undefined ? { userCanonical } : {}),
     ...(inspectionResultLink !== undefined ? { inspectionResultLink } : {}),

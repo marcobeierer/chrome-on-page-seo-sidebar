@@ -101,6 +101,15 @@ test("GSC URL inspection request and canonical normalize", () => {
   );
 });
 
+test("URL inspection status survives without canonical URLs or report links", () => {
+  for (const [verdict, coverageState] of [["PASS", "Submitted and indexed"], ["FAIL", "Excluded by noindex"]]) {
+    assert.deepEqual(
+      normalizeUrlInspectionResult({ inspectionResult: { indexStatusResult: { verdict, coverageState } } }),
+      { verdict, coverageState },
+    );
+  }
+});
+
 test("GSC memory cache expires after 15 minutes", () => {
   const cache = new GscMemoryCache();
   const property = { siteUrl: "https://example.com/", permissionLevel: "siteFullUser", type: "url-prefix", displayName: "https://example.com/" };

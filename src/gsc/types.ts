@@ -59,6 +59,8 @@ export interface GscInspectionResponse {
 }
 
 export interface GscUrlInspectionResult {
+  verdict?: string;
+  coverageState?: string;
   googleCanonical?: string;
   userCanonical?: string;
   inspectionResultLink?: string;
@@ -118,6 +120,8 @@ export interface UrlInspectionApiResponse {
   inspectionResult?: {
     inspectionResultLink?: string;
     indexStatusResult?: {
+      verdict?: string;
+      coverageState?: string;
       googleCanonical?: string;
       userCanonical?: string;
     };
